@@ -33,7 +33,10 @@ jobs:
           repository: The-Bike-Rentals/tbr-backend
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-          
+      - name: Run Script to find location of files and folder
+        run: |
+          ls -l
+          pwd
 
       - name: 'Login via Azure CLI'
         uses: azure/login@v1
