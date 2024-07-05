@@ -33,6 +33,7 @@ jobs:
           repository: The-Bike-Rentals/tbr-backend
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+          
       - name: Run Script to find location of files and folder
         run: |
           ls -l
@@ -49,6 +50,12 @@ jobs:
               registry: ${{ vars.REGISTRY_LOGIN_SERVER }}
               username: ${{ secrets.REGISTRY_USERNAME }}
               password: ${{ secrets.REGISTRY_PASSWORD }}
+      
+          
+      - name: Run Script to find location of files and folder
+        run: |
+          ls -l
+          pwd
                 
       - name: Docker Build
         uses: docker/build-push-action@v5.3.0
