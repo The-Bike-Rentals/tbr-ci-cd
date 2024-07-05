@@ -29,12 +29,13 @@ jobs:
           if [[ ${{ github.event_name == 'workflow_dispatch' }} == true && ${{ inputs.target_branch }} != '' ]]; then
             target_branch=${{ inputs.target_branch }}
           fi
+          echo "target_branch=$target_branch" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v4.1.7
         with:
           # Repository name with owner. For example, actions/checkout
           repository: The-Bike-Rentals/tbr-backend
-          ref: ${{ target_branch }}
+          ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       
       # Runs a single command using the runners shell
