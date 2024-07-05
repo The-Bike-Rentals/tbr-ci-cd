@@ -9,6 +9,10 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs: 
+      target_branch:
+        description: Name of the branch for initializing build from TBR Backend repo
+        type: string
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -19,13 +23,18 @@ jobs:
     environment: build
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: Set Branch name for Future Use
+        run: |
+          target_branch='master'
+          if [[ ${{ github.event_name == 'workflow_dispatch' }} == true && ${{ inputs.target_branch }} != '' ]]; then
+            target_branch=${{ inputs.target_branch }}
+          fi
       - name: Checkout
         uses: actions/checkout@v4.1.7
         with:
           # Repository name with owner. For example, actions/checkout
           repository: The-Bike-Rentals/tbr-backend
+          ref: ${{ target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       
       # Runs a single command using the runners shell
