@@ -1,6 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
-namespace: ${NAMESPACE}
+namespace: check
 metadata:
   labels:
     app: tbr-backend-api
@@ -22,7 +22,7 @@ spec:
     spec:
       automountServiceAccountToken: false
       containers:
-      - image: tbrprodacr.azurecr.io/tbr-backend:${IMAGE_TAG}
+      - image: tbrprodacr.azurecr.io/tbr-backend:0
         command: ["/bin/sh",  "-c",  "envsubst < /usr/cmconfig/index.js > /app/dist/config/index.js && node /app/dist/index.js"]
         imagePullPolicy: IfNotPresent
         name: tbr-backend-api
