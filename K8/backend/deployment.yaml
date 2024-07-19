@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   labels:
     app: tbr-backend-api
-  name: livesports-api-deployment
+  name: tbr-backend-api-deployment
 spec:
   replicas: 1
   selector:
