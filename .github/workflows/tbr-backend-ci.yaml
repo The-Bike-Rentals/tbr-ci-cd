@@ -72,7 +72,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
-        
+
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v1
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Set K8 Context
         uses: Azure/aks-set-context@v4
         with:
