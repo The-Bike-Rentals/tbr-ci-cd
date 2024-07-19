@@ -45,5 +45,3 @@ spec:
       - name: tbr-backend-cm-volume
         configMap:
           name: tbr-backend-config-cm
-      imagePullSecrets:
-      - name: tbrprodimagesecret
