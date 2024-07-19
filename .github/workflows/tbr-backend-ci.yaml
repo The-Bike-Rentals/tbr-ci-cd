@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
-        
+
       - name: 'Login via Azure CLI'
         uses: azure/login@v2
         with:
@@ -73,6 +73,10 @@ jobs:
           creds: '${{ secrets.AZURE_CREDENTIALS }}'
           cluster-name: ${{ secrets.AZ_K8_CLUSTER_NAME }}
           resource-group: ${{ secrets.AZ_K8_CLUSTER_RG }}
+
+      - name: Replace Image name in Manifest folder
+        run: |
+          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
 
       - name: Apply To K8
         uses: Azure/k8s-deploy@v5
