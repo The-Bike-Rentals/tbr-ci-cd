@@ -22,7 +22,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - image: substitute_image_name
-        command: ["/bin/sh",  "-c",  "envsubst < /usr/cmconfig/index.js > /app/dist/config/index.js && node /app/dist/index.js"]
+        command: ["/bin/sh",  "-c",  "envsubst < /usr/cmconfig/index.js > /app/dist/config/index.js && node /app/dist/server.js"]
         imagePullPolicy: IfNotPresent
         name: tbr-backend-api
         env:
