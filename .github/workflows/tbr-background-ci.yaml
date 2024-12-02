@@ -1,0 +1,89 @@
+# This is a basic workflow to help you get started with Actions
+
+name: TBR Node Background Service Build and Deploy to K8
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs: 
+      target_branch:
+        description: Name of the branch for initializing build from TBR Background Service repo
+        type: string
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    environment: build
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: Set Branch name for Future Use
+        run: |
+          target_branch='main'
+          if [ ${{ github.event_name == 'workflow_dispatch' }} == true ] && [ ${{ inputs.target_branch }} != '' ]; then
+            target_branch=${{ inputs.target_branch }}
+          fi
+          echo "target_branch=$target_branch" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+        with:
+          # Repository name with owner. For example, actions/checkout
+          repository: The-Bike-Rentals/tbr-background-service
+          ref: ${{ env.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v2
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+      - name: 'Build and push image'
+        uses: docker/login-action@v3
+        with:
+              registry: ${{ vars.REGISTRY_LOGIN_SERVER }}
+              username: ${{ secrets.REGISTRY_USERNAME }}
+              password: ${{ secrets.REGISTRY_PASSWORD }}
+                
+      - name: Docker Build
+        uses: docker/build-push-action@v5.3.0
+        with: 
+              file: /home/runner/work/tbr-ci-cd/tbr-ci-cd/Dockerfile
+              context: /home/runner/work/tbr-ci-cd/tbr-ci-cd
+              tags: ${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-background-service:${{ github.run_id }}
+              push: true
+      
+  DEV:
+    runs-on: ubuntu-latest
+    environment: Development
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v2
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set K8 Context
+        uses: Azure/aks-set-context@v4
+        with:
+          creds: '${{ secrets.AZURE_CREDENTIALS }}'
+          cluster-name: ${{ secrets.AZ_K8_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AZ_K8_CLUSTER_RG }}
+
+      - name: Replace Image name in Manifest folder
+        run: |
+          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+
+      - name: Apply To K8
+        uses: Azure/k8s-deploy@v5
+        with:
+          namespace: '${{ secrets.AZ_K8_NAMESPACE }}'
+          manifests: |
+              K8/backend
+          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}'
+          imagepullsecrets: |
+              tbrprodimagesecret
