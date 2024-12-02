@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tbr-background-service
+  name: tbr-background-svc-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tbr-background-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: tbr-background-service
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - image: substitute_image_name
+        imagePullPolicy: IfNotPresent
+        name: tbr-background-service
+        env:
+        - name: LOGGING_FILE_PATH
+          value: "/app/logs/"
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          limits:
+            cpu: 50m
+            memory: 50Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /app/dist/config/index.js
+          subPath: index.js
+          name: tbr-backgroundsvc-cm-volume
+      volumes:
+      - name: tbr-backgroundsvc-cm-volume
+        configMap:
+          name: tbr-backgroundsvc-config-cm
