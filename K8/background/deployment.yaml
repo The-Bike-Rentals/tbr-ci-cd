@@ -41,7 +41,7 @@ spec:
         - mountPath: /app/dist/config/index.js
           subPath: index.js
           name: tbr-backgroundsvc-cm-volume
-        - mountPath: mnt/fileshare
+        - mountPath: "/mnt/fileshare"
           name: tbr-backgroundsvc-file-pvc
       volumes:
       - name: tbr-backgroundsvc-cm-volume
