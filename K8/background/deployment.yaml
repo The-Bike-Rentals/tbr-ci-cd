@@ -27,6 +27,8 @@ spec:
         env:
         - name: LOGGING_FILE_PATH
           value: "/app/logs/"
+        - name: PDF_OUTPUT_PATH
+          value: "/mnt/fileshare/"
         ports:
         - containerPort: 3000
           name: http
