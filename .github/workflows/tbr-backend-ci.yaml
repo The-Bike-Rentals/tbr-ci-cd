@@ -51,6 +51,7 @@ jobs:
         with: 
               file: /home/runner/work/tbr-ci-cd/tbr-ci-cd/Dockerfile
               context: /home/runner/work/tbr-ci-cd/tbr-ci-cd
+              build-args: NPM_PAT=${{ secrets.NPM_PAT }}
               tags: ${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}
               push: true
       
