@@ -1,0 +1,109 @@
+# This is a basic workflow to help you get started with Actions
+
+name: TBR Frontend Build and Deploy
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs: 
+      target_branch:
+        description: Name of the branch for initializing build from TBR Frontend repo
+        type: string
+      environment:
+        description: 'UI Application Release environment'
+        type: string
+        required: true
+        default: 'dev'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    environment: build
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: Set Branch name for Future Use
+        run: |
+          target_branch='main'
+          if [ ${{ github.event_name == 'workflow_dispatch' }} == true ] && [ ${{ inputs.target_branch }} != '' ]; then
+            target_branch=${{ inputs.target_branch }}
+          fi
+          echo "target_branch=$target_branch" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+        with:
+          # Repository name with owner. For example, actions/checkout
+          repository: The-Bike-Rentals/tbr-frontend
+          ref: ${{ env.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: adopt
+          cache: gradle
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+      - name: Setup Node  
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - name: Run npm Install
+        run: |
+              npm i -g corepack
+              npm install 
+        # Replace the content of config.json based on the environment
+      - name: Generate config.json for the environment
+        run: |
+          echo "Generating config.json for ${{ github.event.inputs.environment }} environment"
+          if [ "${{ github.event.inputs.environment }}" = "development" ]; then
+            API_URL=${{ vars.DEV_API_URL }}
+          elif [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            API_URL=${{ vars.PROD_API_URL }}
+          else
+            echo "Invalid environment: ${{ github.event.inputs.environment }}"
+            exit 1
+          fi
+
+          # Overwrite the existing config.json with environment-specific values
+          cat > src/config.json <<EOL
+          {
+            "API_URL": "$API_URL",
+            "APP_ENV": "${{ github.event.inputs.environment }}"
+          }
+          EOL
+
+          echo "config.json has been overwritten successfully!"
+      - name: Restore gradle.properties
+        env:
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+        shell: bash
+        run: |
+          cd android
+          rm ./gradle.properties
+          echo "${GRADLE_PROPERTIES}" > ./gradle.properties
+
+          echo "${KEYSTORE}" > ./app/keystore.base64.txt
+          cat ./app/keystore.base64.txt | base64 -d > ./app/release-signing.keystore
+      - name: Build application
+        run: |
+              cd android
+              ./gradlew assembleRelease
+      - name: Upload application
+        uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload to Blob - Login
+        uses: azure/login@v1
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Upload to blob storage
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+              az storage blob upload --account-name ${{ vars.AZURE_STORAGE_FOR_UPLOAD }} --account-key ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }} -f android/app/build/outputs/apk/release/app-release.apk -c apks -n tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
