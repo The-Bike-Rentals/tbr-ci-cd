@@ -1,0 +1,82 @@
+name: Common Build Steps
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'UI Application Release environment'
+        type: string
+        required: true
+        default: 'development'
+      target_branch:
+        description: Name of the branch for initializing build from TBR Frontend repo
+        type: string
+
+jobs:
+  build-steps:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Set Branch name for Future Use
+        run: |
+          target_branch=${{ inputs.target_branch || 'main' }}
+          echo "target_branch=$target_branch" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+        with:
+          repository: The-Bike-Rentals/tbr-frontend
+          ref: ${{ env.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: adopt
+          cache: gradle
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Run npm Install
+        run: |
+          npm i -g corepack
+          npm install
+      - name: Generate config.json for the environment
+        run: |
+          API_URL=${{ secrets.API_URL }}
+          cat > src/config/config.json <<EOL
+          {
+            "API_URL": "$API_URL",
+            "APP_ENV": "${{ inputs.environment }}"
+          }
+          EOL
+
+      - name: Restore gradle.properties
+        env:
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+        run: |
+          cd android
+          echo "${GRADLE_PROPERTIES}" > ./gradle.properties
+          echo "${KEYSTORE}" | base64 -d > ./app/release-signing.keystore
+
+      - name: Build application
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload to Blob - Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upload to blob storage
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            az storage blob upload --account-name ${{ vars.AZURE_STORAGE_FOR_UPLOAD }} --account-key ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }} -f android/app/build/outputs/apk/release/app-release.apk -c apks -n tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
