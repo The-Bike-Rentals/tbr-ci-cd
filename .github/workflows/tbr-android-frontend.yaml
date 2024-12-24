@@ -14,21 +14,10 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   development:
-    runs-on: ubuntu-latest
-    environment: Frontend_Development
-
-    steps:
-      - name: Android Common Build Steps
-        uses: The-Bike-Rentals/tbr-ci-cd/.github/workflows/tbr-android-reusable.yaml@main
-        with:
-          TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-          API_URL: ${{ secrets.API_URL }}
-          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
-          KEYSTORE: ${{ secrets.KEYSTORE }}
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
-          AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
-          UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
-          TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
+    uses: The-Bike-Rentals/tbr-ci-cd/.github/workflows/tbr-android-reusable.yaml@main
+    with:
+      environment: Frontend_Development
+      target_branch: ${{ github.event.inputs.target_branch }}
   # production:
   #   runs-on: ubuntu-latest
   #   environment: Frontend_Production
