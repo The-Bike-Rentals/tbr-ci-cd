@@ -24,9 +24,7 @@ jobs:
       - name: check paths
         run: |
           pwd
-          ls -l
-          cd tbr-ci-cd
-          ls -l
+          ls -a
           where tbr-android-reusable.yaml
 
       - name: Android Common Build Steps
