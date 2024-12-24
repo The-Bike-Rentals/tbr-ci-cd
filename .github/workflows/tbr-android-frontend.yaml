@@ -20,6 +20,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
+      
+      - name: check paths
+        run: |
+          pwd
+          ls -l
+          cd tbr-ci-cd
+          ls -l
+          where tbr-android-reusable.yaml
 
       - name: Android Common Build Steps
         uses: ./.github/workflows/tbr-android-reusable.yaml
