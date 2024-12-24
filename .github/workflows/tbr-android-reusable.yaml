@@ -1,14 +1,37 @@
 name: Common Build Steps
 on:
   workflow_call:
+    secrets:
+      GET_CODE_FROM_PRIVATE_REPO:
+        description: 'Secret for accessing private repo'
+        required: true
+      API_URL:
+        description: 'API URL for the environment'
+        required: true
+      GRADLE_PROPERTIES:
+        description: 'Gradle properties for the environment'
+        required: true
+      KEYSTORE:
+        description: 'Keystore for the environment'
+        required: true
+      AZURE_CREDENTIALS:
+        description: 'Azure credentials for uploading APK'
+        required: true
+      AZURE_STORAGE_FOR_UPLOAD:
+        description: 'Azure storage account for uploading APK'
+        required: true
+      UPLOAD_APK_ACCOUNT_KEY:
+        description: 'Azure storage account key for uploading APK'
+        required: true
     inputs:
       environment:
-        description: 'UI Application Release environment'
         type: string
+        description: 'Environment for the build'
         required: true
-        default: 'development'
+        default: 'Frontend_Development'
       target_branch:
         description: Name of the branch for initializing build from TBR Frontend repo
+        default: 'main'
         type: string
 jobs:
   build-steps:
