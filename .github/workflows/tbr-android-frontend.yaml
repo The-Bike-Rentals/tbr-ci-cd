@@ -18,19 +18,8 @@ jobs:
     environment: Frontend_Development
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4.1.7
-      
-      - name: check paths
-        run: |
-          pwd
-          ls -a
-          cd .github/workflows
-          ls -a
-          where tbr-android-reusable.yaml
-
       - name: Android Common Build Steps
-        uses: ./.github/workflows/tbr-android-reusable.yaml
+        uses: ./actions/tbr-android-reusable.yaml
         with:
           TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
           API_URL: ${{ secrets.API_URL }}
@@ -40,22 +29,22 @@ jobs:
           AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
           UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
           TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
-  production:
-    runs-on: ubuntu-latest
-    environment: Frontend_Production
+  # production:
+  #   runs-on: ubuntu-latest
+  #   environment: Frontend_Production
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4.1.7
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4.1.7
 
-      - name: Android Common Build Steps
-        uses: ./.github/workflows/tbr-android-reusable.yaml
-        with:
-          TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-          API_URL: ${{ secrets.API_URL }}
-          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
-          KEYSTORE: ${{ secrets.KEYSTORE }}
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
-          AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
-          UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
-          TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
+  #     - name: Android Common Build Steps
+  #       uses: ./.github/workflows/tbr-android-reusable.yaml
+  #       with:
+  #         TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+  #         API_URL: ${{ secrets.API_URL }}
+  #         GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+  #         KEYSTORE: ${{ secrets.KEYSTORE }}
+  #         AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+  #         AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
+  #         UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
+  #         TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
