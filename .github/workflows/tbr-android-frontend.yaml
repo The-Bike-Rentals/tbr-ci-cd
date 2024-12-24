@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Android Common Build Steps
-        uses: ./actions/tbr-android-reusable.yaml
+        uses: ./actions/android
         with:
           TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
           API_URL: ${{ secrets.API_URL }}
