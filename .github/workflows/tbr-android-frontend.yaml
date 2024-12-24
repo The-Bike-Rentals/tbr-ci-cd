@@ -15,11 +15,14 @@ jobs:
   # This workflow contains a single job called "build"
   development:
     runs-on: ubuntu-latest
-    environment: development
+    environment: Frontend_Development
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
       - name: Android Common Build Steps
-        uses: ./tbr-android-reusable.yaml
+        uses: ./.github/workflows/tbr-android-reusable.yaml
         with:
           TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
           API_URL: ${{ secrets.API_URL }}
@@ -31,11 +34,14 @@ jobs:
           TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
   production:
     runs-on: ubuntu-latest
-    environment: production
+    environment: Frontend_Production
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
       - name: Android Common Build Steps
-        uses: ./tbr-android-reusable.yaml
+        uses: ./.github/workflows/tbr-android-reusable.yaml
         with:
           TOKEN: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
           API_URL: ${{ secrets.API_URL }}
