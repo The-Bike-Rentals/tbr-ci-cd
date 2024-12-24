@@ -25,6 +25,8 @@ jobs:
         run: |
           pwd
           ls -a
+          cd .github/workflows
+          ls -a
           where tbr-android-reusable.yaml
 
       - name: Android Common Build Steps
