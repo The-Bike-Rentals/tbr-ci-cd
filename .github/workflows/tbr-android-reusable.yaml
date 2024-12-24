@@ -1,0 +1,110 @@
+name: Android Common Build Steps
+
+on:
+  workflow_call:
+    inputs:
+      TOKEN:
+        description: 'PAT token for accessing private repo'
+        type: string
+        required: true
+      API_URL:
+        description: 'Backend api url for the environment'
+        type: string
+        required: true
+      GRADLE_PROPERTIES:
+        description: 'gradle.properties data'
+        type: string
+        required: true
+      KEYSTORE:
+        description: 'base64 encoded keystore data'
+        type: string
+        required: true
+      AZURE_CREDENTIALS:
+        description: 'Azure credentials for uploading to blob storage'
+        type: string
+        required: true
+      AZURE_STORAGE_FOR_UPLOAD:
+        description: 'Azure storage account name for uploading'
+        type: string
+        required: true
+      UPLOAD_APK_ACCOUNT_KEY:
+        description: 'Azure storage account key for uploading'
+        type: string
+        required: true
+      TARGET_BRANCH:
+        description: Name of the branch for initializing build from TBR Frontend repo
+        type: string
+
+jobs:
+  build-steps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set inputs to environment variables
+        run: |
+          TARGET_BRANCH=${{ inputs.TARGET_BRANCH || 'main' }}
+          echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "API_URL=$API_URL" >> $GITHUB_ENV
+          echo "GRADLE_PROPERTIES=$GRADLE_PROPERTIES" >> $GITHUB_ENV
+          echo "KEYSTORE=$KEYSTORE" >> $GITHUB_ENV
+          echo "AZURE_CREDENTIALS=$AZURE_CREDENTIALS" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_FOR_UPLOAD=$AZURE_STORAGE_FOR_UPLOAD" >> $GITHUB_ENV
+          echo "UPLOAD_APK_ACCOUNT_KEY=$UPLOAD_APK_ACCOUNT_KEY" >> $GITHUB_ENV
+
+
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+        with:
+          repository: The-Bike-Rentals/tbr-frontend
+          ref: ${{ env.TARGET_BRANCH }}
+          token: ${{ env.TOKEN }}
+
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: adopt
+          cache: gradle
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Run npm Install
+        run: |
+          npm i -g corepack
+          npm install
+      - name: Generate config.json for the environment
+        run: |
+          cat > src/config/config.json <<EOL
+          {
+            "apiBaseUrl": "${{ env.API_URL }}"
+          }
+          EOL
+
+      - name: Restore gradle.properties
+        env:
+          GRADLE_PROPERTIES: ${{ env.GRADLE_PROPERTIES }}
+          KEYSTORE: ${{ env.KEYSTORE }}
+        run: |
+          cd android
+          echo "${GRADLE_PROPERTIES}" > ./gradle.properties
+          echo "${KEYSTORE}" | base64 -d > ./app/release-signing.keystore
+
+      - name: Build application
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload to Blob - Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      - name: Upload to blob storage
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            az storage blob upload --account-name ${{ env.AZURE_STORAGE_FOR_UPLOAD }} --account-key ${{ env.UPLOAD_APK_ACCOUNT_KEY }} -f android/app/build/outputs/apk/release/app-release.apk -c apks -n tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
