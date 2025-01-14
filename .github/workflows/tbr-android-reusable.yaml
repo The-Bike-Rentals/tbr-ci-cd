@@ -35,7 +35,7 @@ on:
         type: string
 jobs:
   build-steps:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
       - name: Set Branch name for Future Use
