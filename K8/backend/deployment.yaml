@@ -22,12 +22,13 @@ spec:
       automountServiceAccountToken: false
       containers:
       - image: substitute_image_name
-        command: ["/bin/sh",  "-c",  "envsubst < /usr/cmconfig/index.js > /app/dist/config/index.js && node /app/dist/server.js"]
         imagePullPolicy: IfNotPresent
         name: tbr-backend-api
         env:
         - name: LOGGING_FILE_PATH
           value: "/app/logs/"
+        - name: AKV_URL
+          value: substitute_akv_url
         ports:
         - containerPort: 3000
           name: http
@@ -38,10 +39,3 @@ spec:
           requests:
             cpu: 50m
             memory: 50Mi
-        volumeMounts:
-        - mountPath: /usr/cmconfig
-          name: tbr-backend-cm-volume
-      volumes:
-      - name: tbr-backend-cm-volume
-        configMap:
-          name: tbr-backend-config-cm
