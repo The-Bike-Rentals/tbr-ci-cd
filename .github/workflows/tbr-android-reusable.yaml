@@ -68,8 +68,8 @@ jobs:
           API_URL=${{ secrets.API_URL }}
           cat > src/config/config.json <<EOL
           {
-            "API_URL": "$API_URL",
-            "APP_ENV": "${{ inputs.environment }}"
+            "apiBaseUrl": "$API_URL",
+            "env": "${{ inputs.environment }}"
           }
           EOL
       - name: Restore gradle.properties
