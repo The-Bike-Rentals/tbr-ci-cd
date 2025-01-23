@@ -9,6 +9,7 @@ on:
       target_branch:
         description: Name of the branch for initializing build from TBR Frontend repo
         type: string
+        required: true
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -28,6 +29,7 @@ jobs:
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       
   production:
+    if: github.event.inputs.target_branch == 'main'
     needs: development
     uses: ./.github/workflows/tbr-android-reusable.yaml
     with:

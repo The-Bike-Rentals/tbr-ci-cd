@@ -9,6 +9,7 @@ on:
       target_branch:
         description: Name of the branch for initializing build from TBR Backend repo
         type: string
+        required: true     
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -78,6 +79,7 @@ jobs:
       - name: Replace Image name in Manifest folder
         run: |
           sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+          sed -i 's|substitute_akv_url|${{ secrets.AKV_URL }}|g' K8/backend/deployment.yaml
 
       - name: Apply To K8
         uses: Azure/k8s-deploy@v5
@@ -89,6 +91,7 @@ jobs:
           imagepullsecrets: |
               tbrprodimagesecret
   PROD:
+    if: inputs.target_branch == 'main'
     runs-on: ubuntu-latest
     environment: production
     needs: DEV
@@ -111,6 +114,7 @@ jobs:
       - name: Replace Image name in Manifest folder
         run: |
           sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+          sed -i 's|substitute_akv_url|${{ secrets.AKV_URL }}|g' K8/backend/deployment.yaml
 
       - name: Apply To K8
         uses: Azure/k8s-deploy@v5
