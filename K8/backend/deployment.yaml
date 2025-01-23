@@ -27,7 +27,7 @@ spec:
         name: tbr-backend-api
         env:
         - name: LOGGING_FILE_PATH
-          value: "/mnt/fileshare/logs/"
+          value: "/mnt/logs"
         ports:
         - containerPort: 3000
           name: http
