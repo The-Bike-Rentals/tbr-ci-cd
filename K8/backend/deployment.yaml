@@ -41,12 +41,12 @@ spec:
         volumeMounts:
         - mountPath: /usr/cmconfig
           name: tbr-backend-cm-volume
-        - mountPath: "/mnt/fileshare"
-          name: tbr-backgroundsvc-file-pvc
+        - mountPath: "/mnt/logs"
+          name: azurefile
       volumes:
       - name: tbr-backend-cm-volume
         configMap:
           name: tbr-backend-config-cm
-      - name: tbr-backgroundsvc-file-pvc
+      - name: azurefile
         persistentVolumeClaim:
-          claimName: backgroundsvc-file-pvc
+          claimName: azurefile
