@@ -25,8 +25,10 @@ spec:
         imagePullPolicy: IfNotPresent
         name: tbr-backend-api
         env:
-        - name: LOGGING_FILE_PATH
-          value: "/app/logs/"
+        - name: LOG_FILE_PATH
+          value: "/mnt/logs"
+        - name: CONSOLE_LOG_FILE_PATH
+          value: "/mnt/logs"
         - name: AKV_URL
           value: substitute_akv_url
         ports:
@@ -39,3 +41,10 @@ spec:
           requests:
             cpu: 50m
             memory: 50Mi
+        volumeMounts:
+        - mountPath: "/mnt/logs"
+          name: azurefile
+      volumes:
+      - name: azurefile
+        persistentVolumeClaim:
+          claimName: azurefile
