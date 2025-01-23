@@ -28,6 +28,8 @@ spec:
         env:
         - name: LOGGING_FILE_PATH
           value: "/mnt/logs"
+        - name: CONSOLE_LOG_FILE_PATH
+          value: "/mnt/logs"
         ports:
         - containerPort: 3000
           name: http
