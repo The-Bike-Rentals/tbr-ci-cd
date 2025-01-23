@@ -28,7 +28,7 @@ spec:
         - name: LOGGING_FILE_PATH
           value: "/mnt/backgroundsvc/logs/"
         - name: PDF_OUTPUT_PATH
-          value: "/mnt/backgroundsvc/files/"
+          value: "/mnt/backgroundsvc/"
         ports:
         - containerPort: 3000
           name: http
