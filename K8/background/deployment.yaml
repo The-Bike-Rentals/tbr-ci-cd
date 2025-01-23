@@ -26,9 +26,9 @@ spec:
         name: tbr-background-service
         env:
         - name: LOGGING_FILE_PATH
-          value: "/app/logs/"
+          value: "/mnt/backgroundsvc/logs/"
         - name: PDF_OUTPUT_PATH
-          value: "/mnt/fileshare/"
+          value: "/mnt/backgroundsvc/files/"
         ports:
         - containerPort: 3000
           name: http
@@ -43,12 +43,12 @@ spec:
         - mountPath: /app/dist/config/index.js
           subPath: index.js
           name: tbr-backgroundsvc-cm-volume
-        - mountPath: "/mnt/fileshare"
-          name: tbr-backgroundsvc-file-pvc
+        - mountPath: "/mnt/backgroundsvc/"
+          name: azurefile-backgroud
       volumes:
       - name: tbr-backgroundsvc-cm-volume
         configMap:
           name: tbr-backgroundsvc-config-cm
-      - name: tbr-backgroundsvc-file-pvc
+      - name: azurefile-backgroud
         persistentVolumeClaim:
-          claimName: backgroundsvc-file-pvc
+          claimName: azurefile-backgroud
