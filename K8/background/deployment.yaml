@@ -46,11 +46,11 @@ spec:
           subPath: index.js
           name: tbr-backgroundsvc-cm-volume
         - mountPath: "/mnt/backgroundsvc/"
-          name: azurefile-backgroud
+          name: azure-blob-background-invoices
       volumes:
       - name: tbr-backgroundsvc-cm-volume
         configMap:
           name: tbr-backgroundsvc-config-cm
-      - name: azurefile-backgroud
+      - name: azure-blob-background-invoices
         persistentVolumeClaim:
-          claimName: azurefile-backgroud
+          claimName: azure-blob-background-invoices

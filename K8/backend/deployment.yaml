@@ -43,8 +43,8 @@ spec:
             memory: 50Mi
         volumeMounts:
         - mountPath: "/mnt/logs"
-          name: azurefile
+          name: azure-blob-logs
       volumes:
-      - name: azurefile
+      - name: azure-blob-logs
         persistentVolumeClaim:
-          claimName: azurefile
+          claimName: azure-blob-logs
