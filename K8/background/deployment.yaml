@@ -42,17 +42,11 @@ spec:
             cpu: 50m
             memory: 50Mi
         volumeMounts:
-        - mountPath: /app/dist/config/index.js
-          subPath: index.js
-          name: tbr-backgroundsvc-cm-volume
         - mountPath: "/mnt/backgroundsvc/"
           name: azure-blob-background-invoices
         - mountPath: "/mnt/logs/"
           name: azure-blob-logs
       volumes:
-      - name: tbr-backgroundsvc-cm-volume
-        configMap:
-          name: tbr-backgroundsvc-config-cm
       - name: azure-blob-background-invoices
         persistentVolumeClaim:
           claimName: azure-blob-background-invoices
