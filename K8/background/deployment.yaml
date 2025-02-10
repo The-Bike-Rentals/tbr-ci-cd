@@ -26,7 +26,7 @@ spec:
         name: tbr-background-service
         env:
         - name: LOGGING_FILE_PATH
-          value: "/mnt/backgroundsvc/logs/"
+          value: "/mnt/logs/"
         - name: PDF_OUTPUT_PATH
           value: "/mnt/backgroundsvc/"
         - name: AKV_URL
@@ -42,15 +42,14 @@ spec:
             cpu: 50m
             memory: 50Mi
         volumeMounts:
-        - mountPath: /app/dist/config/index.js
-          subPath: index.js
-          name: tbr-backgroundsvc-cm-volume
         - mountPath: "/mnt/backgroundsvc/"
           name: azure-blob-background-invoices
+        - mountPath: "/mnt/logs/"
+          name: azure-blob-logs
       volumes:
-      - name: tbr-backgroundsvc-cm-volume
-        configMap:
-          name: tbr-backgroundsvc-config-cm
       - name: azure-blob-background-invoices
         persistentVolumeClaim:
           claimName: azure-blob-background-invoices
+      - name: azure-blob-logs
+        persistentVolumeClaim:
+          claimName: azure-blob-logs    
