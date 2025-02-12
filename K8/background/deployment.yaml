@@ -25,7 +25,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: tbr-background-service
         env:
-        - name: LOGGING_FILE_PATH
+        - name: LOG_FILE_PATH
           value: "/mnt/logs/"
         - name: PDF_OUTPUT_PATH
           value: "/mnt/backgroundsvc/"
