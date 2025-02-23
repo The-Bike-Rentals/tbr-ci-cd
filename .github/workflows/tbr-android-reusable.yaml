@@ -1,4 +1,4 @@
-name: Common Build Steps
+name: Common Build Steps For Android
 on:
   workflow_call:
     secrets:
@@ -94,4 +94,4 @@ jobs:
         uses: azure/CLI@v1
         with:
           inlineScript: |
-            az storage blob upload --account-name ${{ vars.AZURE_STORAGE_FOR_UPLOAD }} --account-key ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }} -f android/app/build/outputs/apk/release/app-release.apk -c apks -n ${{inputs.folder}}tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
+            az storage blob upload --account-name ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }} --account-key ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }} -f android/app/build/outputs/apk/release/app-release.apk -c apks -n ${{inputs.folder}}/tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
