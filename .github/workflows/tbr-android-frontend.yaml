@@ -19,6 +19,7 @@ jobs:
     with:
       environment: Frontend_Development
       target_branch: ${{ github.event.inputs.target_branch }}
+      folder: tst
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
@@ -35,6 +36,7 @@ jobs:
     with:
       environment: Frontend_Production
       target_branch: ${{ github.event.inputs.target_branch }}
+      folder: prod
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
