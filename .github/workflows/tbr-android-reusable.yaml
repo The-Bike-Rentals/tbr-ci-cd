@@ -65,7 +65,7 @@ jobs:
       - name: Run npm Install
         run: |
           npm i -g corepack
-          npm install
+          npm install --force
       - name: Generate config.json for the environment
         run: |
           API_URL=${{ secrets.API_URL }}
