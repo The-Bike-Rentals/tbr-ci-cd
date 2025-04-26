@@ -68,7 +68,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.7
 
-        - name: 'LOGIN TO AZURE'
+      - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
         with:
             client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -104,7 +104,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.7
 
-        - name: 'LOGIN TO AZURE'
+      - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
         with:
             client-id: ${{ secrets.AZURE_CLIENT_ID }}
