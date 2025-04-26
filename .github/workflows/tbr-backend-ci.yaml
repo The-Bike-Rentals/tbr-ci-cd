@@ -38,7 +38,7 @@ jobs:
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
 
-      - name: 'Login via Azure CLI'
+      - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
         with:
             client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -58,3 +58,75 @@ jobs:
               build-args: NPM_PAT=${{ secrets.NPM_PAT }}
               tags: ${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}
               push: true
+      
+  DEV:
+    runs-on: ubuntu-latest
+    environment: Development
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: 'LOGIN TO AZURE'
+        uses: azure/login@v2
+        with:
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set K8 Context
+        uses: Azure/aks-set-context@v4
+        with:
+          cluster-name: ${{ secrets.AZ_K8_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AZ_K8_CLUSTER_RG }}
+
+      - name: Replace Image name in Manifest folder
+        run: |
+          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+          sed -i 's|substitute_akv_url|${{ secrets.AKV_URL }}|g' K8/backend/deployment.yaml
+
+      - name: Apply To K8
+        uses: Azure/k8s-deploy@v5
+        with:
+          namespace: '${{ secrets.AZ_K8_NAMESPACE }}'
+          manifests: |
+              K8/backend
+          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}'
+          imagepullsecrets: |
+              tbrprodimagesecret
+
+  PROD:
+    if: inputs.target_branch == 'main'
+    runs-on: ubuntu-latest
+    environment: production
+    needs: DEV
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v2
+        with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set K8 Context
+        uses: Azure/aks-set-context@v4
+        with:
+          creds: '${{ secrets.AZURE_CREDENTIALS }}'
+          cluster-name: ${{ secrets.AZ_K8_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AZ_K8_CLUSTER_RG }}
+
+      - name: Replace Image name in Manifest folder
+        run: |
+          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+          sed -i 's|substitute_akv_url|${{ secrets.AKV_URL }}|g' K8/backend/deployment.yaml
+
+      - name: Apply To K8
+        uses: Azure/k8s-deploy@v5
+        with:
+          namespace: '${{ secrets.AZ_K8_NAMESPACE }}'
+          manifests: |
+              K8/backend
+          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}'
+          imagepullsecrets: |
+              tbrprodimagesecret
