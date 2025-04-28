@@ -21,6 +21,8 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     environment: build
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: Set Branch name for Future Use
@@ -37,6 +39,14 @@ jobs:
           repository: The-Bike-Rentals/tbr-backend
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+
+      - name: Get next version
+        uses: reecetech/version-increment@2024.10.1
+        id: version
+        with:
+          scheme: calver
+          increment: patch
+          release_branch: releases/release-3.1-test
 
       - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
@@ -56,13 +66,15 @@ jobs:
               file: /home/runner/work/tbr-ci-cd/tbr-ci-cd/Dockerfile
               context: /home/runner/work/tbr-ci-cd/tbr-ci-cd
               build-args: NPM_PAT=${{ secrets.NPM_PAT }}
-              tags: ${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}
+              tags: ${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ steps.version.outputs.version }}
               push: true
       
   DEV:
     runs-on: ubuntu-latest
     environment: Development
     needs: build
+    outputs:
+      version: ${{ needs.build.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.7
@@ -82,7 +94,7 @@ jobs:
 
       - name: Replace Image name in Manifest folder
         run: |
-          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ needs.build.outputs.version }}|g' K8/backend/deployment.yaml
           sed -i 's|substitute_akv_url|${{ secrets.AKV_URL }}|g' K8/backend/deployment.yaml
 
       - name: Apply To K8
@@ -91,7 +103,7 @@ jobs:
           namespace: '${{ secrets.AZ_K8_NAMESPACE }}'
           manifests: |
               K8/backend
-          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}'
+          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ needs.build.outputs.version }}'
           imagepullsecrets: |
               tbrprodimagesecret
 
@@ -119,7 +131,7 @@ jobs:
 
       - name: Replace Image name in Manifest folder
         run: |
-          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}|g' K8/backend/deployment.yaml
+          sed -i 's|substitute_image_name|${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ needs.DEV.outputs.version }}|g' K8/backend/deployment.yaml
           sed -i 's|substitute_akv_url|${{ secrets.AKV_URL }}|g' K8/backend/deployment.yaml
 
       - name: Apply To K8
@@ -128,6 +140,6 @@ jobs:
           namespace: '${{ secrets.AZ_K8_NAMESPACE }}'
           manifests: |
               K8/backend
-          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}'
+          images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ needs.DEV.outputs.version }}'
           imagepullsecrets: |
               tbrprodimagesecret
