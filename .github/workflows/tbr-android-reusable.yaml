@@ -65,8 +65,8 @@ jobs:
         run: |
           sudo apt-get install -y xmlstarlet
           ls -a
-          xmlstarlet ed -L -u "resources/string" -v "${{ inputs.appName }}" ./android/app/src/main/resources/values/strings.xml
-          cat ./android/app/src/main/resources/values/strings.xml 
+          xmlstarlet ed -L -u "/resources/string" -v "${{ inputs.appName }}" android/app/src/main/res/values/strings.xml
+          cat android/app/src/main/res/values/strings.xml 
 
       - name: Install Java
         uses: actions/setup-java@v3
