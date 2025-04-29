@@ -35,7 +35,6 @@ jobs:
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       
   production:
-    if: github.event.inputs.target_branch == 'hidutt/getsecretfromgithub'
     needs: development
     uses: ./.github/workflows/tbr-android-reusable.yaml
     with:
