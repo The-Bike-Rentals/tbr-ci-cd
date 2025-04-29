@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Set Branch name for Future Use
         run: |
-          target_branch='main'
+          target_branch='neha/r3.1'
           if [ ${{ github.event_name == 'workflow_dispatch' }} == true ] && [ ${{ inputs.target_branch }} != '' ]; then
             target_branch=${{ inputs.target_branch }}
           fi
@@ -96,7 +96,7 @@ jobs:
               tbrprodimagesecret
 
   PROD:
-    if: inputs.target_branch == 'main'
+    if: inputs.target_branch == 'neha/r3.1'
     runs-on: ubuntu-latest
     environment: production
     needs: DEV
