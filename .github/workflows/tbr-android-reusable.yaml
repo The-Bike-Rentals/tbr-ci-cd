@@ -62,7 +62,7 @@ jobs:
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
 
-      - name: Run npm Install
+      - name: Install XML Starlet and update strings.xml for app name
         run: |
           sudo apt-get install -y xmlstarlet
           xmlstarlet ed -L -u "/resources/string" -v "${{ inputs.appName }}" android/app/src/main/res/values/strings.xml
