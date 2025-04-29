@@ -35,7 +35,7 @@ jobs:
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       
   production:
-    if: github.event.inputs.target_branch == 'users/neha/r3.1'
+    if: github.event.inputs.target_branch == 'main'
     needs: development
     uses: ./.github/workflows/tbr-android-reusable.yaml
     with:
