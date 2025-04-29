@@ -23,6 +23,7 @@ jobs:
       environment: Frontend_Development
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: tst
+      appName: 'Dev The Bike Rentals'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
@@ -42,6 +43,7 @@ jobs:
       environment: Frontend_Production
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: prod
+      appName: 'The Bike Rentals'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}

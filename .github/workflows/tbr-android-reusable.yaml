@@ -42,6 +42,10 @@ on:
       folder:
         type: string
         required: true
+      appName:
+        type: string
+        required: true
+        default: 'The Bike Rentals'
 jobs:
   build-steps:
     runs-on: ubuntu-latest
@@ -57,6 +61,12 @@ jobs:
           repository: The-Bike-Rentals/tbr-frontend
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+
+      - name: Install XML Starlet and update strings.xml for app name
+        run: |
+          sudo apt-get install -y xmlstarlet
+          xmlstarlet ed -L -u "/resources/string" -v "${{ inputs.appName }}" android/app/src/main/res/values/strings.xml
+
       - name: Install Java
         uses: actions/setup-java@v3
         with:
