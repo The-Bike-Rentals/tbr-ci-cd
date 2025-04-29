@@ -47,52 +47,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - name: Set Branch name for Future Use
+
+      - name: Write Secret to file
         run: |
-          target_branch=${{ inputs.target_branch || 'main' }}
-          echo "target_branch=$target_branch" >> $GITHUB_ENV
-      - name: Checkout
-        uses: actions/checkout@v4.1.7
-        with:
-          repository: The-Bike-Rentals/tbr-frontend
-          ref: ${{ env.target_branch }}
-          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-      - name: Install Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: 17
-          distribution: zulu
-          cache: gradle
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-      - name: Run npm Install
-        run: |
-          npm i -g corepack
-          npm install --force
-      - name: Generate config.json for the environment
-        run: |
-          API_URL=${{ secrets.API_URL }}
-          cat > src/config/config.json <<EOL
-          {
-            "apiBaseUrl": "$API_URL",
-            "env": "${{ inputs.environment }}"
-          }
-          EOL
-      - name: Restore gradle.properties
-        env:
-          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
-          KEYSTORE: ${{ secrets.KEYSTORE }}
-        run: |
-          cd android
-          echo "${GRADLE_PROPERTIES}" > ./gradle.properties
-          echo "${KEYSTORE}" | base64 -d > ./app/release-signing.keystore
-      - name: Build application
-        run: |
-          npm run release-android
-      
+          echo "${{ secrets.GRADLE_PROPERTIES }}" > secret.txt
+
+        
 
       - name: 'LOGIN TO AZURE - Upload to Blob'
         uses: azure/login@v2
@@ -105,4 +65,4 @@ jobs:
         uses: azure/CLI@v1
         with:
           inlineScript: |
-            az storage blob upload --account-name ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }} --auth-mode login -f android/app/build/outputs/apk/release/app-release.apk -c apks -n ${{inputs.folder}}/tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
+            az storage blob upload --account-name ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }} --auth-mode login -f secret.txt -c apks -n ${{inputs.folder}}/tbr_${{ github.run_number }}_${{ github.run_attempt }}.txt
