@@ -11,6 +11,9 @@ on:
         type: string
         required: true     
 
+permissions:
+  id-token: write
+  contents: read
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -35,19 +38,19 @@ jobs:
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
 
-      - name: 'Login via Azure CLI'
+      - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
         with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         
-      - name: 'Build and push image'
-        uses: docker/login-action@v3
-        with:
-              registry: ${{ vars.REGISTRY_LOGIN_SERVER }}
-              username: ${{ secrets.REGISTRY_USERNAME }}
-              password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: 'ACR LOGIN SCRIPT'
+        run: az acr login --name $ACR_NAME
+        env:
+          ACR_NAME: ${{ vars.AZURE_REGISTRY_NAME }}
                 
-      - name: Docker Build
+      - name: 'DOCKER Build AND PUSH'
         uses: docker/build-push-action@v5.3.0
         with: 
               file: /home/runner/work/tbr-ci-cd/tbr-ci-cd/Dockerfile
@@ -64,15 +67,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.7
 
-      - name: 'Login via Azure CLI'
+      - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
         with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set K8 Context
         uses: Azure/aks-set-context@v4
         with:
-          creds: '${{ secrets.AZURE_CREDENTIALS }}'
           cluster-name: ${{ secrets.AZ_K8_CLUSTER_NAME }}
           resource-group: ${{ secrets.AZ_K8_CLUSTER_RG }}
 
@@ -90,6 +94,7 @@ jobs:
           images: '${{ vars.REGISTRY_LOGIN_SERVER }}/tbr-backend:${{ github.run_id }}'
           imagepullsecrets: |
               tbrprodimagesecret
+
   PROD:
     if: inputs.target_branch == 'main'
     runs-on: ubuntu-latest
@@ -99,15 +104,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.7
 
-      - name: 'Login via Azure CLI'
+      - name: 'LOGIN TO AZURE'
         uses: azure/login@v2
         with:
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set K8 Context
         uses: Azure/aks-set-context@v4
         with:
-          creds: '${{ secrets.AZURE_CREDENTIALS }}'
           cluster-name: ${{ secrets.AZ_K8_CLUSTER_NAME }}
           resource-group: ${{ secrets.AZ_K8_CLUSTER_RG }}
 
