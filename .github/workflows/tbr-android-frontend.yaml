@@ -36,7 +36,7 @@ jobs:
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       
   production:
-    if: github.event.inputs.target_branch == 'release/release4'
+    if: github.event.inputs.target_branch == 'releases/release4'
     needs: development
     uses: ./.github/workflows/tbr-android-reusable.yaml
     with:
