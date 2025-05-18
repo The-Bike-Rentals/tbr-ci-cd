@@ -96,7 +96,7 @@ jobs:
           imagepullsecrets: |
               tbrprodimagesecret
   PROD:
-    if: inputs.target_branch == 'release/release4'
+    if: inputs.target_branch == 'releases/release4'
     runs-on: ubuntu-latest
     environment: production
     needs: DEV
