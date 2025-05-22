@@ -1,0 +1,60 @@
+# This is a basic workflow to help you get started with Actions
+
+name: TBR Frontend IOS
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs: 
+      target_branch:
+        description: Name of the branch for initializing build from TBR Frontend repo
+        type: string
+        required: true
+permissions:
+  id-token: write
+  contents: read
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  development:
+    uses: ./.github/workflows/tbr-ios-reusable.yaml
+    with:
+      environment: Frontend_Development
+      target_branch: ${{ github.event.inputs.target_branch }}
+      folder: tst
+      appName: 'Dev The Bike Rentals'
+    secrets: 
+      GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+      API_URL: ${{ secrets.API_URL }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+      BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
+      UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
+      
+  production:
+    if: github.event.inputs.target_branch == 'releases/release4'
+    needs: development
+    uses: ./.github/workflows/tbr-ios-reusable.yaml
+    with:
+      environment: Frontend_Production
+      target_branch: ${{ github.event.inputs.target_branch }}
+      folder: prod
+      appName: 'The Bike Rentals'
+    secrets: 
+      GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+      API_URL: ${{ secrets.API_URL }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+      BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
+      UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
