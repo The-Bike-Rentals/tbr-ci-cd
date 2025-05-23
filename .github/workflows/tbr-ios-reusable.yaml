@@ -110,7 +110,6 @@ jobs:
           cp $PP_PATH ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
       - name: Install Cocoapods
         run: |
-          xcode-select --install
           sudo gem install cocoapods
           pod repo update
       - name: Install Pods
