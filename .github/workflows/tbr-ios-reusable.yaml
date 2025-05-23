@@ -108,10 +108,23 @@ jobs:
           # apply provisioning profile
           mkdir -p ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
           cp $PP_PATH ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
-
+      - name: Install Cocoapods
+        run: |
+          xcode-select --install
+          sudo gem install cocoapods
+          pod repo update
+      - name: Install Pods
+        run: |
+          bundle install
+          cd ios
+          pod install --repo-update
+          cd ..
+          npx react-native build-ios --mode Release
+      
       - name: build archive
         run: |
           xcodebuild -scheme "tbr" \
+          -workspace ios/tbr.xcworkspace \
           -archivePath $RUNNER_TEMP/tbr.xcarchive \
           -sdk iphoneos \
           -configuration Release \
@@ -120,7 +133,7 @@ jobs:
       
       - name: export ipa
         run: |
-          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/tbr.xcarchive -exportPath $RUNNER_TEMP/build
+          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/tbr.xcarchive -exportPath $RUNNER_TEMP/build -exportOptionsPlist ./ios/tbr/Info.plist -allowProvisioningUpdates
 
       - name: 'LOGIN TO AZURE - Upload to Blob'
         uses: azure/login@v2
