@@ -118,7 +118,7 @@ jobs:
           cd ios
           pod install --repo-update
           cd ..
-          npx react-native build-ios --mode Release
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
       
       - name: build archive
         run: |
