@@ -99,7 +99,7 @@ jobs:
       - name: Make envfile
         uses: SpicyPizza/create-envfile@v2.0
         with:
-          GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+          envkey_GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
 
       - name: Check env file
         run: |
