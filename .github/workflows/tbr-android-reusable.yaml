@@ -101,10 +101,6 @@ jobs:
         with:
           envkey_GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
 
-      - name: Check env file
-        run: |
-          cat .env
-
       - name: Restore gradle.properties
         env:
           GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
