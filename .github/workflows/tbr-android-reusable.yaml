@@ -72,7 +72,7 @@ jobs:
       - name: Write Secret to file
         run: |
           echo "${{ secrets.GRADLE_PROPERTIES }}" > secret.txt
-          ls
+          ls -a
 
         
 
