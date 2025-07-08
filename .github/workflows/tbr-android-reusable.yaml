@@ -64,13 +64,10 @@ jobs:
           repository: The-Bike-Rentals/tbr-frontend
           ref: ${{ env.target_branch }}
           token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-      - name: Make envfile
-        uses: SpicyPizza/create-envfile@v2.0
-        with:
-          envkey_GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
 
       - name: Write Secret to file
         run: |
+          echo "GOOGLE_MAPS_KEY=${{ secrets.GOOGLE_MAPS_KEY }}" > .env
           echo "${{ secrets.GRADLE_PROPERTIES }}" > secret.txt
           ls -a
 
