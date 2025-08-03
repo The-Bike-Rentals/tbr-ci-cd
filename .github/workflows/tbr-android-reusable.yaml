@@ -29,6 +29,9 @@ on:
       UPLOAD_APK_ACCOUNT_KEY:
         description: 'Azure storage account key for uploading APK'
         required: true
+      GOOGLE_MAPS_KEY:
+        description: 'Key from Google Maps console to support map rendering'
+        required: true
     inputs:
       environment:
         type: string
@@ -91,6 +94,13 @@ jobs:
             "env": "${{ inputs.environment }}"
           }
           EOL
+
+      
+      - name: Make envfile
+        uses: SpicyPizza/create-envfile@v2.0
+        with:
+          envkey_GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+
       - name: Restore gradle.properties
         env:
           GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
