@@ -37,7 +37,7 @@ jobs:
       GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
       
   production:
-    if: github.event.inputs.target_branch == 'main'
+    if: github.event.inputs.target_branch == 'releases/release4'
     needs: development
     uses: ./.github/workflows/tbr-android-reusable.yaml
     with:
