@@ -23,6 +23,7 @@ jobs:
       environment: Frontend_Development
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: tst
+      appName: 'Dev The Bike Rentals'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
@@ -33,15 +34,17 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
+      GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
       
   production:
-    if: github.event.inputs.target_branch == 'main'
+    if: github.event.inputs.target_branch == 'releases/release4'
     needs: development
     uses: ./.github/workflows/tbr-android-reusable.yaml
     with:
       environment: Frontend_Production
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: prod
+      appName: 'The Bike Rentals'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
@@ -52,3 +55,4 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
+      GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
