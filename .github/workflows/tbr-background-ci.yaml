@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Set Branch name for Future Use
         run: |
-          target_branch='release/release4'
+          target_branch='hotfix/release4.1'
           if [ ${{ github.event_name == 'workflow_dispatch' }} == true ] && [ ${{ inputs.target_branch }} != '' ]; then
             target_branch=${{ inputs.target_branch }}
           fi
@@ -96,7 +96,7 @@ jobs:
           imagepullsecrets: |
               tbrprodimagesecret
   PROD:
-    if: inputs.target_branch == 'releases/release4'
+    if: inputs.target_branch == 'hotfix/release4.1'
     runs-on: ubuntu-latest
     environment: production
     needs: DEV
