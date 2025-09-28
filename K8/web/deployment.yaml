@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tbr-web
+  name: tbr-web-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tbr-web
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: tbr-web
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - image: substitute_image_name
+        imagePullPolicy: IfNotPresent
+        name: tbr-web
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          limits:
+            cpu: 150m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi  
