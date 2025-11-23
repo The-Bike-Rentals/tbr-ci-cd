@@ -148,5 +148,5 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}
           packageName: ${{ inputs.packageName }}
-          releaseFiles: app/build/outputs/bundle/release/app-release.aab # Adjust path as needed
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track }}
