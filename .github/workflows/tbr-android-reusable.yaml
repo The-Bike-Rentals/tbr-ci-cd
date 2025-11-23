@@ -52,7 +52,7 @@ on:
         type: string
         required: true
         default: 'The Bike Rentals'
-      packeageName:
+      packageName:
         type: string
         required: true
         default: 'com.tbr.dev'
@@ -147,6 +147,6 @@ jobs:
         uses: r0adkll/upload-google-play@v1.0.18 # Use the latest version
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}
-          packageName: ${{ inputs.packeageName }}
+          packageName: ${{ inputs.packageName }}
           releaseFiles: app/build/outputs/bundle/release/app-release.aab # Adjust path as needed
           track: ${{ inputs.track }}

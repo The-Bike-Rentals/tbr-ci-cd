@@ -24,6 +24,8 @@ jobs:
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: tst
       appName: 'Dev The Bike Rentals'
+      track: 'internal'
+      packageName: 'com.tbr.dev'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
@@ -36,7 +38,6 @@ jobs:
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
       GOOGLE_PLAY_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}
-      packeageName: 'com.tbr.dev'
   production:
     if: github.event.inputs.target_branch == 'releases/release4'
     needs: development
@@ -46,7 +47,8 @@ jobs:
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: prod
       appName: 'The Bike Rentals'
-      packeageName: 'com.tbr'
+      packageName: 'com.tbr'
+      track: 'production'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
