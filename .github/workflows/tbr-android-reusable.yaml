@@ -130,4 +130,4 @@ jobs:
         uses: azure/CLI@v1
         with:
           inlineScript: |
-            az storage blob upload --account-name ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }} --auth-mode login -f android/app/build/outputs/apk/release/app-release.apk -c apks -n ${{inputs.folder}}/tbr_${{ github.run_number }}_${{ github.run_attempt }}.apk
+            az storage blob upload --account-name ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }} --auth-mode login -f android/app/build/outputs/bundle/release/app-release.aab -c apks -n ${{inputs.folder}}/tbr_${{ github.run_number }}_${{ github.run_attempt }}.aab
