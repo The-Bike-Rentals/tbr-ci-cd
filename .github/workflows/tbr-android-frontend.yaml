@@ -35,7 +35,8 @@ jobs:
       AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
-      
+      GOOGLE_PLAY_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}
+      packeageName: 'com.tbr.dev'
   production:
     if: github.event.inputs.target_branch == 'releases/release4'
     needs: development
@@ -45,6 +46,7 @@ jobs:
       target_branch: ${{ github.event.inputs.target_branch }}
       folder: prod
       appName: 'The Bike Rentals'
+      packeageName: 'com.tbr'
     secrets: 
       GET_CODE_FROM_PRIVATE_REPO: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
       API_URL: ${{ secrets.API_URL }}
@@ -56,3 +58,4 @@ jobs:
       AZURE_STORAGE_FOR_UPLOAD: ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }}
       UPLOAD_APK_ACCOUNT_KEY: ${{ secrets.UPLOAD_APK_ACCOUNT_KEY }}
       GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}

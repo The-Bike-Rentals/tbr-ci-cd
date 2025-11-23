@@ -32,6 +32,9 @@ on:
       GOOGLE_MAPS_KEY:
         description: 'Key from Google Maps console to support map rendering'
         required: true
+      GOOGLE_PLAY_SERVICE_ACCOUNT_KEY:
+        description: 'Service account key JSON for Google Play Store upload'
+        required: true
     inputs:
       environment:
         type: string
@@ -49,6 +52,14 @@ on:
         type: string
         required: true
         default: 'The Bike Rentals'
+      packeageName:
+        type: string
+        required: true
+        default: 'com.tbr.dev'
+      track:
+        type: string
+        required: true
+        default: 'internal'
 jobs:
   build-steps:
     runs-on: ubuntu-latest
@@ -131,3 +142,11 @@ jobs:
         with:
           inlineScript: |
             az storage blob upload --account-name ${{ secrets.AZURE_STORAGE_FOR_UPLOAD }} --auth-mode login -f android/app/build/outputs/bundle/release/app-release.aab -c apks -n ${{inputs.folder}}/tbr_${{ github.run_number }}_${{ github.run_attempt }}.aab
+
+      - name: Upload to Play Store
+        uses: r0adkll/upload-google-play@v1.0.18 # Use the latest version
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}
+          packageName: ${{ inputs.packeageName }}
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab # Adjust path as needed
+          track: ${{ inputs.track }}
