@@ -125,6 +125,14 @@ jobs:
           cd android
           echo "${GRADLE_PROPERTIES}" > ./gradle.properties
           echo "${KEYSTORE}" | base64 -d > ./app/release-signing.keystore
+
+      - name: Increment Android Version Code
+        uses: chkfung/android-version-actions@v1.2.2
+        with:
+          gradlePath: android/app/build.gradle
+          versionCode: ${{ github.run_number }}
+          versionName: '1.0.${{ github.run_number }}'
+
       - name: Build application
         run: |
           npm run release-android
