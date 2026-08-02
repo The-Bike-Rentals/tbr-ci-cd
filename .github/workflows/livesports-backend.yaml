@@ -1,0 +1,472 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+
+name: Build and deploy API
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select the target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      target_branch:
+        description: Name of the branch for initializing build from LiveSports repo
+        type: string
+        required: true     
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# TARGET_PLATFORM controls deployment path:
+#   WEB_APP  -> deploy to Azure App Service
+#   AKS      -> build Docker image, push to ACR, apply k8s manifests to AKS
+# Value is sourced exclusively from the repo/environment variable
+# `vars.TARGET_PLATFORM`. If it is not set, the workflow fails (see the
+# `validate` job below).
+
+jobs:
+  # Fails fast if `vars.TARGET_PLATFORM` is not configured for the
+  # repo/environment. All downstream jobs depend on this job.
+  validate:
+    environment:
+      name: ${{ inputs.environment == 'production' && 'livesports-production' || inputs.environment == 'development' && 'livesports-dev' || 'livesports-local' }}
+    runs-on: ubuntu-latest
+    outputs:
+      target_platform: ${{ steps.resolve.outputs.target_platform }}
+    steps:
+      - name: Set Branch name for Future Use
+        run: |
+          target_branch='main'
+          if [ ${{ github.event_name == 'workflow_dispatch' }} == true ] && [ ${{ inputs.target_branch }} != '' ]; then
+            target_branch=${{ inputs.target_branch }}
+          fi
+          echo "target_branch=$target_branch" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v4.1.7
+        with:
+          # Repository name with owner. For example, actions/checkout
+          repository: The-Bike-Rentals/livesports
+          ref: ${{ env.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+      - name: Ensure TARGET_PLATFORM is configured
+        id: resolve
+        run: |
+          if [ -z "${{ vars.TARGET_PLATFORM }}" ]; then
+            echo "::error::vars.TARGET_PLATFORM is not set. Configure it as a repository or environment variable (allowed: WEB_APP or AKS)."
+            exit 1
+          fi
+          case "${{ vars.TARGET_PLATFORM }}" in
+            WEB_APP|AKS)
+              echo "TARGET_PLATFORM=${{ vars.TARGET_PLATFORM }}"
+              echo "target_platform=${{ vars.TARGET_PLATFORM }}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Invalid vars.TARGET_PLATFORM '${{ vars.TARGET_PLATFORM }}'. Allowed values: WEB_APP, AKS."
+              exit 1
+              ;;
+          esac
+
+  build:
+    environment:
+      name: ${{ inputs.environment == 'production' && 'livesports-production' || inputs.environment == 'staging' && 'livesports-dev' || 'livesports-local' }}
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read #This is required for actions/checkout
+    if: ${{ needs.validate.outputs.target_platform == 'WEB_APP' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.0'
+
+      # 🛠️ Local Build Section (Optional)
+      # The following section in your workflow is designed to catch build issues early on the client side, before deployment. This can be helpful for debugging and validation. However, if this step significantly increases deployment time and early detection is not critical for your workflow, you may remove this section to streamline the deployment process.
+      - name: Create and Start virtual environment and Install dependencies
+        working-directory: livesports-python-api
+        run: |
+          python -m venv antenv
+          source antenv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Zip artifact for deployment
+        run: |
+          cd livesports-python-api
+          zip -r ../release.zip . -x "antenv/*"
+
+      # By default, when you enable GitHub CI/CD integration through the Azure portal, the platform automatically sets the SCM_DO_BUILD_DURING_DEPLOYMENT application setting to true. This triggers the use of Oryx, a build engine that handles application compilation and dependency installation (e.g., pip install) directly on the platform during deployment. Hence, we exclude the antenv virtual environment directory from the deployment artifact to reduce the payload size.
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: release.zip
+
+      # 🚫 Opting Out of Oryx Build
+      # If you prefer to disable the Oryx build process during deployment, follow these steps:
+      # 1. Remove the SCM_DO_BUILD_DURING_DEPLOYMENT app setting from your Azure App Service Environment variables.
+      # 2. Refer to sample workflows for alternative deployment strategies: https://github.com/Azure/actions-workflow-samples/tree/master/AppService
+
+  deployWebApp:
+    environment:
+      name: ${{ inputs.environment == 'production' && 'livesports-production' || inputs.environment == 'staging' && 'livesports-dev' || 'livesports-local' }}
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    if: ${{ needs.validate.outputs.target_platform == 'WEB_APP' }}
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v8
+        with:
+          name: python-app
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_WEB_APP }}
+
+      - name: Resolve Web App resource group
+        id: webapp-rg
+        env:
+          APP_NAME: ${{ vars.WEB_APP_NAME }}
+          WEB_APP_RESOURCE_GROUP: ${{ vars.WEB_APP_RESOURCE_GROUP }}
+        run: |
+          RG="${WEB_APP_RESOURCE_GROUP}"
+          if [ -z "${RG}" ]; then
+            RG=$(az webapp list --query "[?name=='${APP_NAME}'].resourceGroup | [0]" -o tsv)
+          fi
+          if [ -z "${RG}" ]; then
+            echo "::error::Could not resolve resource group for web app '${APP_NAME}'. Set vars.WEB_APP_RESOURCE_GROUP."
+            exit 1
+          fi
+          echo "resource_group=${RG}" >> "$GITHUB_OUTPUT"
+          echo "Using resource group: ${RG}"
+
+      - name: Delete existing custom app settings
+        env:
+          APP_NAME: ${{ vars.WEB_APP_NAME }}
+          RG: ${{ steps.webapp-rg.outputs.resource_group }}
+        run: |
+          SETTINGS_TO_DELETE=$(az webapp config appsettings list \
+            --name "${APP_NAME}" \
+            --resource-group "${RG}" \
+            --query "[?!(starts_with(name, 'WEBSITE_') || starts_with(name, 'SCM_') || starts_with(name, 'DOCKER_') || starts_with(name, 'FUNCTIONS_'))].name" \
+            -o tsv)
+          if [ -n "${SETTINGS_TO_DELETE}" ]; then
+            az webapp config appsettings delete \
+              --name "${APP_NAME}" \
+              --resource-group "${RG}" \
+              --setting-names ${SETTINGS_TO_DELETE}
+          else
+            echo "No custom app settings to delete."
+          fi
+
+      - name: Delete existing connection strings
+        env:
+          APP_NAME: ${{ vars.WEB_APP_NAME }}
+          RG: ${{ steps.webapp-rg.outputs.resource_group }}
+        run: |
+          CONN_TO_DELETE=$(az webapp config connection-string list \
+            --name "${APP_NAME}" \
+            --resource-group "${RG}" \
+            --query "[?name!=null].name" \
+            -o tsv)
+          if [ -n "${CONN_TO_DELETE}" ]; then
+            az webapp config connection-string delete \
+              --name "${APP_NAME}" \
+              --resource-group "${RG}" \
+              --setting-names ${CONN_TO_DELETE}
+          else
+            echo "No connection strings to delete."
+          fi
+
+      - name: Create app settings (environment variables)
+        env:
+          APP_NAME: ${{ vars.WEB_APP_NAME }}
+          RG: ${{ steps.webapp-rg.outputs.resource_group }}
+          AZURE_SERVICE_BUS_QUEUE: ${{ vars.AZURE_SERVICE_BUS_QUEUE || 'livesports' }}
+          ALGORITHM: ${{ vars.ALGORITHM || 'HS256' }}
+          ACCESS_TOKEN_EXPIRE_MINUTES: ${{ vars.ACCESS_TOKEN_EXPIRE_MINUTES || '60' }}
+          REFRESH_TOKEN_EXPIRE_DAYS: ${{ vars.REFRESH_TOKEN_EXPIRE_DAYS || '30' }}
+          CORS_ORIGINS_RAW: ${{ vars.CORS_ORIGINS }}
+          PHONEPE_CLIENT_VERSION: ${{ vars.PHONEPE_CLIENT_VERSION || '1' }}
+          PHONEPE_ENV: ${{ vars.PHONEPE_ENV || 'SANDBOX' }}
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL }}
+          FRONTEND_BASE_URL: ${{ vars.FRONTEND_BASE_URL }}
+          ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'production' }}
+          YOUTUBE_BROADCASTER_CHANNEL_TITLE: ${{ vars.YOUTUBE_BROADCASTER_CHANNEL_TITLE || 'livesports' }}
+        run: |
+          SETTINGS_ARGS=(
+            "AZURE_SERVICE_BUS_QUEUE=${AZURE_SERVICE_BUS_QUEUE}"
+            "ALGORITHM=${ALGORITHM}"
+            "ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}"
+            "REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}"
+            "PHONEPE_CLIENT_VERSION=${PHONEPE_CLIENT_VERSION}"
+            "PHONEPE_ENV=${PHONEPE_ENV}"
+            "BACKEND_BASE_URL=${BACKEND_BASE_URL}"
+            "FRONTEND_BASE_URL=${FRONTEND_BASE_URL}"
+            "ENVIRONMENT=${ENVIRONMENT}"
+            "YOUTUBE_BROADCASTER_CHANNEL_TITLE=${YOUTUBE_BROADCASTER_CHANNEL_TITLE}"
+          )
+
+          # CORS_ORIGINS must be valid JSON for pydantic-settings List[str].
+          if [ -z "${CORS_ORIGINS_RAW}" ]; then
+            CORS_ORIGINS_SAFE='[]'
+          else
+            CORS_ORIGINS_SAFE=$(python -c "import json, os; raw=os.environ['CORS_ORIGINS_RAW']; parsed=json.loads(raw); assert isinstance(parsed, list), 'CORS_ORIGINS must be a JSON array'; print(json.dumps(parsed, separators=(',',':')))" )
+          fi
+          SETTINGS_ARGS+=("CORS_ORIGINS=${CORS_ORIGINS_SAFE}")
+
+          az webapp config appsettings set \
+            --name "${APP_NAME}" \
+            --resource-group "${RG}" \
+            --settings "${SETTINGS_ARGS[@]}"
+
+      - name: Create connection strings
+        env:
+          APP_NAME: ${{ vars.WEB_APP_NAME }}
+          RG: ${{ steps.webapp-rg.outputs.resource_group }}
+          MONGODB_URL: ${{ secrets.MONGODB_URL }}
+          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          AZURE_SERVICE_BUS_CONNECTION_STRING: ${{ secrets.AZURE_SERVICE_BUS_CONNECTION_STRING }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          MESSAGING_API_URL: ${{ secrets.MESSAGING_API_URL }}
+          MESSAGING_API_SESSION: ${{ secrets.MESSAGING_API_SESSION }}
+          MESSAGING_API_KEY: ${{ secrets.MESSAGING_API_KEY }}
+          PHONEPE_CLIENT_ID: ${{ secrets.PHONEPE_CLIENT_ID }}
+          PHONEPE_CLIENT_SECRET: ${{ secrets.PHONEPE_CLIENT_SECRET }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_BROADCASTER_REFRESH_TOKEN: ${{ secrets.YOUTUBE_BROADCASTER_REFRESH_TOKEN }}
+          YOUTUBE_BROADCASTER_CHANNEL_ID: ${{ secrets.YOUTUBE_BROADCASTER_CHANNEL_ID }}
+        run: |
+          REQUIRED_KEYS=(
+            MONGODB_URL
+            MONGODB_DB_NAME
+            REDIS_URL
+            AZURE_SERVICE_BUS_CONNECTION_STRING
+            SECRET_KEY
+            MESSAGING_API_URL
+            MESSAGING_API_SESSION
+            MESSAGING_API_KEY
+            PHONEPE_CLIENT_ID
+            PHONEPE_CLIENT_SECRET
+            YOUTUBE_CLIENT_ID
+            YOUTUBE_CLIENT_SECRET
+            YOUTUBE_BROADCASTER_REFRESH_TOKEN
+            YOUTUBE_BROADCASTER_CHANNEL_ID
+          )
+
+          CONN_ARGS=()
+          CREATED_KEYS=()
+          MISSING_KEYS=()
+
+          for key in "${REQUIRED_KEYS[@]}"; do
+            value="${!key}"
+            if [ -n "${value}" ]; then
+              CONN_ARGS+=("${key}=${value}")
+              CREATED_KEYS+=("${key}")
+            else
+              MISSING_KEYS+=("${key}")
+            fi
+          done
+
+          if [ ${#MISSING_KEYS[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets for connection strings: ${MISSING_KEYS[*]}"
+            exit 1
+          fi
+
+          echo "Creating ${#CREATED_KEYS[@]} connection strings: ${CREATED_KEYS[*]}"
+
+          az webapp config connection-string set \
+            --name "${APP_NAME}" \
+            --resource-group "${RG}" \
+            --connection-string-type Custom \
+            --settings "${CONN_ARGS[@]}"
+
+
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'livesports-api'
+          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZ_WEB_APP_PUBLISH_PROFILE }}
+          package: release.zip
+
+  # ---------------------------------------------------------------------------
+  # AKS deployment path
+  # ---------------------------------------------------------------------------
+  # Required repo/environment secrets:
+  #   AZURE_CREDENTIALS  - service principal JSON for azure/login (with ACR + AKS access)
+  # Required repo/environment variables:
+  #   ACR_NAME           - Azure Container Registry name (e.g. livesportsacr)
+  #   ACR_LOGIN_SERVER   - ACR login server (e.g. livesportsacr.azurecr.io)
+  #   AKS_CLUSTER_NAME   - AKS cluster name
+  #   AKS_RESOURCE_GROUP - resource group of the AKS cluster
+  #   K8S_NAMESPACE      - (optional) target namespace, defaults to "default"
+  deploy-aks:
+    environment:
+      name: ${{ github.ref_name == 'main' && 'Production' || github.ref_name == 'development' && 'Development' || 'Local' }}
+    runs-on: ubuntu-latest
+    needs: validate
+    if: ${{ needs.validate.outputs.target_platform == 'AKS' }}
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag (timestamp + short sha)
+        id: tag
+        run: |
+          TS=$(date -u +'%Y%m%d-%H%M%S')
+          SHORT_SHA=${GITHUB_SHA::7}
+          IMAGE_TAG="${TS}-${SHORT_SHA}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> "$GITHUB_ENV"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Image tag: ${IMAGE_TAG}"
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR login
+        run: az acr login --name "${{ vars.ACR_NAME }}"
+
+      - name: Build and push Docker image to ACR
+        working-directory: livesports-python-api
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+        run: |
+          IMAGE="${ACR_LOGIN_SERVER}/livesports-python-api:${IMAGE_TAG}"
+          docker build -t "${IMAGE}" -t "${ACR_LOGIN_SERVER}/livesports-python-api:latest" .
+          docker push "${IMAGE}"
+          docker push "${ACR_LOGIN_SERVER}/livesports-python-api:latest"
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ vars.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ vars.AKS_CLUSTER_NAME }}
+
+      - name: Ensure ACR image pull secret in cluster
+        env:
+          NS: ${{ vars.K8S_NAMESPACE || 'default' }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+        run: |
+          # Mint a short-lived ACR access token via the already-authenticated
+          # service principal and use it as the docker password. Username for
+          # token-based ACR auth is the well-known empty GUID.
+          TOKEN=$(az acr login --name "${ACR_NAME}" --expose-token --output tsv --query accessToken)
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::Failed to obtain ACR access token"
+            exit 1
+          fi
+          kubectl delete secret livesportsprodimagesecret -n "${NS}" --ignore-not-found
+          kubectl create secret docker-registry livesportsprodimagesecret \
+            -n "${NS}" \
+            --docker-server="${ACR_LOGIN_SERVER}" \
+            --docker-username="00000000-0000-0000-0000-000000000000" \
+            --docker-password="${TOKEN}"
+      - name: Render k8s manifests (envsubst)
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+        run: |
+          mkdir -p .rendered
+          # Only deployment.yml/service.yml are rendered via envsubst — secret.yml
+          # is built directly with `kubectl create secret --from-literal` in the
+          # next step so that arbitrary values (containing quotes, newlines, etc.)
+          # never have to be safely escaped inside YAML.
+          for f in k8/python-api/deployment.yml k8/python-api/service.yml; do
+            out=".rendered/$(basename "$f")"
+            envsubst < "$f" > "$out"
+          done
+          echo "----- deployment.yml -----"
+          cat .rendered/deployment.yml
+          echo "----- service.yml -----"
+          cat .rendered/service.yml
+
+      - name: Apply k8s manifests
+        env:
+          NS: ${{ vars.K8S_NAMESPACE || 'default' }}
+          # Secret values — sourced from GitHub Actions secrets / variables.
+          MONGODB_URL: ${{ secrets.MONGODB_URL }}
+          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          AZURE_SERVICE_BUS_CONNECTION_STRING: ${{ secrets.AZURE_SERVICE_BUS_CONNECTION_STRING }}
+          AZURE_SERVICE_BUS_QUEUE: ${{ vars.AZURE_SERVICE_BUS_QUEUE || 'livesports' }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ALGORITHM: ${{ vars.ALGORITHM || 'HS256' }}
+          ACCESS_TOKEN_EXPIRE_MINUTES: ${{ vars.ACCESS_TOKEN_EXPIRE_MINUTES || '60' }}
+          REFRESH_TOKEN_EXPIRE_DAYS: ${{ vars.REFRESH_TOKEN_EXPIRE_DAYS || '30' }}
+          MESSAGING_API_URL: ${{ secrets.MESSAGING_API_URL }}
+          MESSAGING_API_SESSION: ${{ secrets.MESSAGING_API_SESSION }}
+          MESSAGING_API_KEY: ${{ secrets.MESSAGING_API_KEY }}
+          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+          PHONEPE_CLIENT_ID: ${{ secrets.PHONEPE_CLIENT_ID }}
+          PHONEPE_CLIENT_SECRET: ${{ secrets.PHONEPE_CLIENT_SECRET }}
+          PHONEPE_CLIENT_VERSION: ${{ vars.PHONEPE_CLIENT_VERSION || '1' }}
+          PHONEPE_ENV: ${{ vars.PHONEPE_ENV || 'SANDBOX' }}
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL }}
+          FRONTEND_BASE_URL: ${{ vars.FRONTEND_BASE_URL }}
+          ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'production' }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_BROADCASTER_REFRESH_TOKEN: ${{ secrets.YOUTUBE_BROADCASTER_REFRESH_TOKEN }}
+          YOUTUBE_BROADCASTER_CHANNEL_ID: ${{ secrets.YOUTUBE_BROADCASTER_CHANNEL_ID }}
+          YOUTUBE_BROADCASTER_CHANNEL_TITLE: ${{ vars.YOUTUBE_BROADCASTER_CHANNEL_TITLE || 'livesports' }}
+        run: |
+          # Always recreate the secret so values are never reused across deploys.
+          # Build the Secret with --from-literal so arbitrary characters in values
+          # (quotes, newlines, backslashes, JSON, etc.) are passed verbatim and
+          # never have to survive YAML escaping.
+          echo "Deleting existing secret 'livesports-secrets' (if any) in namespace '${NS}'."
+          kubectl delete secret livesports-secrets -n "${NS}" --ignore-not-found
+          echo "Creating secret 'livesports-secrets' in namespace '${NS}'."
+          kubectl create secret generic livesports-secrets -n "${NS}" \
+            --from-literal=mongodb_url="${MONGODB_URL}" \
+            --from-literal=mongodb_db_name="${MONGODB_DB_NAME}" \
+            --from-literal=redis_url="${REDIS_URL}" \
+            --from-literal=azure_service_bus_connection_string="${AZURE_SERVICE_BUS_CONNECTION_STRING}" \
+            --from-literal=azure_service_bus_queue="${AZURE_SERVICE_BUS_QUEUE}" \
+            --from-literal=secret_key="${SECRET_KEY}" \
+            --from-literal=algorithm="${ALGORITHM}" \
+            --from-literal=access_token_expire_minutes="${ACCESS_TOKEN_EXPIRE_MINUTES}" \
+            --from-literal=refresh_token_expire_days="${REFRESH_TOKEN_EXPIRE_DAYS}" \
+            --from-literal=messaging_api_url="${MESSAGING_API_URL}" \
+            --from-literal=messaging_api_session="${MESSAGING_API_SESSION}" \
+            --from-literal=messaging_api_key="${MESSAGING_API_KEY}" \
+            --from-literal=cors_origins="${CORS_ORIGINS}" \
+            --from-literal=phonepe_client_id="${PHONEPE_CLIENT_ID}" \
+            --from-literal=phonepe_client_secret="${PHONEPE_CLIENT_SECRET}" \
+            --from-literal=phonepe_client_version="${PHONEPE_CLIENT_VERSION}" \
+            --from-literal=phonepe_env="${PHONEPE_ENV}" \
+            --from-literal=backend_base_url="${BACKEND_BASE_URL}" \
+            --from-literal=frontend_base_url="${FRONTEND_BASE_URL}" \
+            --from-literal=environment="${ENVIRONMENT}" \
+            --from-literal=youtube_client_id="${YOUTUBE_CLIENT_ID}" \
+            --from-literal=youtube_client_secret="${YOUTUBE_CLIENT_SECRET}" \
+            --from-literal=youtube_broadcaster_refresh_token="${YOUTUBE_BROADCASTER_REFRESH_TOKEN}" \
+            --from-literal=youtube_broadcaster_channel_id="${YOUTUBE_BROADCASTER_CHANNEL_ID}" \
+            --from-literal=youtube_broadcaster_channel_title="${YOUTUBE_BROADCASTER_CHANNEL_TITLE}"
+          kubectl apply -n "${NS}" -f .rendered/deployment.yml
+          kubectl apply -n "${NS}" -f .rendered/service.yml
+          kubectl rollout restart -n "${NS}" deployment/livesports-python-api
+          kubectl rollout status -n "${NS}" deployment/livesports-python-api --timeout=5m
