@@ -1,10 +1,18 @@
-name: LiveSports Background Pipeline
+name: LiveSports Background Worker - Build and Deploy
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: Select the target environment
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - production
       target_branch:
-        description: Branch to deploy from the private LiveSports repository
+        description: Branch to build from the private LiveSports repository
         required: true
         default: development
         type: string
@@ -12,20 +20,163 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  dispatch:
+  build:
+    environment: ${{ inputs.environment == 'production' && 'livesports-production' || 'livesports-dev' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch private background workflow
-        uses: actions/github-script@v7
-        env:
-          TARGET_BRANCH: ${{ inputs.target_branch }}
+      - name: Validate target platform
+        run: |
+          if [ "${{ vars.BACKGROUND_TARGET_PLATFORM }}" != 'AZURE_FUNCTION' ]; then
+            echo '::error::BACKGROUND_TARGET_PLATFORM must be AZURE_FUNCTION.'
+            exit 1
+          fi
+
+      - name: Checkout LiveSports
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'The-Bike-Rentals',
-              repo: 'livesports',
-              workflow_id: 'background-deploy.yml',
-              ref: process.env.TARGET_BRANCH
-            });
+          repository: The-Bike-Rentals/livesports
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.0'
+
+      - name: Install dependencies into Azure Functions package path
+        working-directory: livesports-python-background
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt --target '.python_packages/lib/site-packages'
+
+      - name: Extract WeasyPrint native dependencies
+        working-directory: livesports-python-background
+        run: |
+          set -euo pipefail
+          mkdir -p my_libs
+          docker pull mcr.microsoft.com/azure-functions/python:4-python3.13
+          docker run --rm \
+            --entrypoint /bin/bash \
+            -v "$(pwd)/my_libs:/output" \
+            mcr.microsoft.com/azure-functions/python:4-python3.13 \
+            -lc '
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+                libcairo2 libcairo-gobject2 libgdk-pixbuf-2.0-0 \
+                libglib2.0-0 libharfbuzz0b libfribidi0 libthai0 libthai-data \
+                libdatrie1 libgraphite2-3 libfontconfig1 libfreetype6 libexpat1 \
+                libpng16-16 libjpeg62-turbo libxml2 libffi8 libpixman-1-0 \
+                libuuid1 libmount1 libblkid1 libselinux1 libpcre2-8-0 \
+                shared-mime-info fonts-dejavu-core
+              for pattern in \
+                "libpango*.so*" "libcairo*.so*" "libgdk_pixbuf*.so*" \
+                "libgobject*.so*" "libgio*.so*" "libglib*.so*" "libgmodule*.so*" \
+                "libharfbuzz*.so*" "libfribidi*.so*" "libthai*.so*" "libdatrie*.so*" \
+                "libgraphite2*.so*" "libfontconfig*.so*" "libfreetype*.so*" \
+                "libpng16*.so*" "libjpeg*.so*" "libxml2*.so*" "libpixman*.so*" \
+                "libffi*.so*" "libexpat*.so*" "libpcre*.so*" "libz.so*" \
+                "libuuid*.so*" "libmount*.so*" "libblkid*.so*" "libselinux*.so*"; do
+                cp -a /usr/lib/x86_64-linux-gnu/$pattern /output/ 2>/dev/null || true
+              done
+            '
+          sudo chmod -R a+r my_libs
+          lib_count=$(find my_libs -maxdepth 1 -name 'libpango*.so*' | wc -l)
+          if [ "${lib_count}" -eq 0 ]; then
+            echo '::error::No libpango shared libraries were extracted.'
+            exit 1
+          fi
+
+      - name: Create deployment package
+        working-directory: livesports-python-background
+        run: zip -r ../release.zip . -x 'antenv/*' '.git/*' '.gitignore' '*.pyc' '__pycache__/*'
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: livesports-background
+          path: release.zip
+
+  deploy:
+    environment: ${{ inputs.environment == 'production' && 'livesports-production' || 'livesports-dev' }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download deployment package
+        uses: actions/download-artifact@v8
+        with:
+          name: livesports-background
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Function
+        env:
+          FUNCTION_NAME: ${{ vars.AZURE_FUNCTION_BACKGROUND_NAME }}
+          RG: ${{ vars.AZURE_FUNCTION_BACKGROUND_RESOURCE_GROUP }}
+        run: |
+          az functionapp deployment source config-zip \
+            --name "${FUNCTION_NAME}" \
+            --resource-group "${RG}" \
+            --src release.zip \
+            --build-remote false
+
+      - name: Configure Function App settings
+        env:
+          FUNCTION_NAME: ${{ vars.AZURE_FUNCTION_BACKGROUND_NAME }}
+          RG: ${{ vars.AZURE_FUNCTION_BACKGROUND_RESOURCE_GROUP }}
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL }}
+          PAYMENT_STATUS_API_TIMEOUT_SECONDS: ${{ vars.PAYMENT_STATUS_API_TIMEOUT_SECONDS || '10' }}
+          MESSAGING_API_URL: ${{ vars.MESSAGING_API_URL || 'https://mail.thebikerentals.com/api/send' }}
+          MESSAGING_API_SESSION: ${{ vars.MESSAGING_API_SESSION || 'tbr' }}
+          MESSAGING_API_TIMEOUT_SECONDS: ${{ vars.MESSAGING_API_TIMEOUT_SECONDS || '15' }}
+          MESSAGING_API_RETRY_ATTEMPTS: ${{ vars.MESSAGING_API_RETRY_ATTEMPTS || '3' }}
+          MESSAGING_API_RETRY_DELAY_SECONDS: ${{ vars.MESSAGING_API_RETRY_DELAY_SECONDS || '1.0' }}
+          SCORESHEET_MATCHES_PER_PDF: ${{ vars.SCORESHEET_MATCHES_PER_PDF || '20' }}
+          AZURE_SERVICE_BUS_QUEUE: ${{ vars.AZURE_SERVICE_BUS_QUEUE || 'livesports' }}
+        run: |
+          az functionapp config appsettings set \
+            --name "${FUNCTION_NAME}" \
+            --resource-group "${RG}" \
+            --settings \
+              BACKEND_BASE_URL="${BACKEND_BASE_URL}" \
+              PAYMENT_STATUS_API_TIMEOUT_SECONDS="${PAYMENT_STATUS_API_TIMEOUT_SECONDS}" \
+              MESSAGING_API_URL="${MESSAGING_API_URL}" \
+              MESSAGING_API_SESSION="${MESSAGING_API_SESSION}" \
+              MESSAGING_API_TIMEOUT_SECONDS="${MESSAGING_API_TIMEOUT_SECONDS}" \
+              MESSAGING_API_RETRY_ATTEMPTS="${MESSAGING_API_RETRY_ATTEMPTS}" \
+              MESSAGING_API_RETRY_DELAY_SECONDS="${MESSAGING_API_RETRY_DELAY_SECONDS}" \
+              SCORESHEET_MATCHES_PER_PDF="${SCORESHEET_MATCHES_PER_PDF}" \
+              AZURE_SERVICE_BUS_QUEUE="${AZURE_SERVICE_BUS_QUEUE}" \
+              LD_LIBRARY_PATH='/home/site/wwwroot/my_libs'
+
+      - name: Configure Function App secrets
+        env:
+          FUNCTION_NAME: ${{ vars.AZURE_FUNCTION_BACKGROUND_NAME }}
+          RG: ${{ vars.AZURE_FUNCTION_BACKGROUND_RESOURCE_GROUP }}
+          PAYMENT_STATUS_API_USERNAME: ${{ secrets.PAYMENT_STATUS_API_USERNAME }}
+          PAYMENT_STATUS_API_PASSWORD: ${{ secrets.PAYMENT_STATUS_API_PASSWORD }}
+          MESSAGING_API_KEY: ${{ secrets.MESSAGING_API_KEY }}
+          AZURE_SERVICE_BUS_CONNECTION_STRING: ${{ secrets.AZURE_SERVICE_BUS_CONNECTION_STRING }}
+        run: |
+          az functionapp config appsettings set \
+            --name "${FUNCTION_NAME}" \
+            --resource-group "${RG}" \
+            --settings \
+              PAYMENT_STATUS_API_USERNAME="${PAYMENT_STATUS_API_USERNAME}" \
+              PAYMENT_STATUS_API_PASSWORD="${PAYMENT_STATUS_API_PASSWORD}" \
+              MESSAGING_API_KEY="${MESSAGING_API_KEY}" \
+              AZURE_SERVICE_BUS_CONNECTION_STRING="${AZURE_SERVICE_BUS_CONNECTION_STRING}"
+
+      - name: Azure logout
+        if: ${{ always() }}
+        run: az logout

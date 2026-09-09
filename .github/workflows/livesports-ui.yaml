@@ -1,10 +1,18 @@
-name: LiveSports UI Pipeline
+name: LiveSports UI - Build and Deploy
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: Select the target environment
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - production
       target_branch:
-        description: Branch to deploy from the private LiveSports repository
+        description: Branch to build from the private LiveSports repository
         required: true
         default: development
         type: string
@@ -12,20 +20,70 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  dispatch:
+  build-and-deploy:
+    environment: ${{ inputs.environment == 'production' && 'livesports-production' || 'livesports-dev' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch private UI workflow
-        uses: actions/github-script@v7
-        env:
-          TARGET_BRANCH: ${{ inputs.target_branch }}
+      - name: Checkout LiveSports
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'The-Bike-Rentals',
-              repo: 'livesports',
-              workflow_id: 'ui-deploy.yml',
-              ref: process.env.TARGET_BRANCH
-            });
+          repository: The-Bike-Rentals/livesports
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+          persist-credentials: false
+          submodules: true
+          lfs: false
+
+      - name: Setup .env
+        working-directory: livesports-react-web
+        run: |
+          echo "VITE_APP_NAME=${{ vars.VITE_APP_NAME }}" >> .env
+          echo "VITE_AGENCY_ID=${{ vars.VITE_AGENCY_ID }}" >> .env
+          echo "VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}" >> .env
+          echo "VITE_FRONTEND_URL=${{ vars.VITE_FRONTEND_URL }}" >> .env
+
+      - name: Inject legal template values
+        working-directory: livesports-react-web
+        env:
+          LEGAL_AGENCY_NAME: ${{ vars.LEGAL_AGENCY_NAME || vars.VITE_APP_NAME || 'LiveSports' }}
+          LEGAL_EFFECTIVE_DATE: ${{ vars.LEGAL_EFFECTIVE_DATE || '' }}
+          LEGAL_CONTACT_EMAIL: ${{ vars.LEGAL_CONTACT_EMAIL || vars.LEGAL_PRIVACY_EMAIL || 'contact@thebikerentals.com' }}
+          LEGAL_PRIVACY_EMAIL: ${{ vars.LEGAL_PRIVACY_EMAIL || vars.LEGAL_CONTACT_EMAIL || 'contact@thebikerentals.com' }}
+          LEGAL_REFUND_SUPPORT_EMAIL: ${{ vars.LEGAL_REFUND_SUPPORT_EMAIL || vars.LEGAL_CONTACT_EMAIL || 'contact@thebikerentals.com' }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          legal_dir = Path('public/legal')
+          effective_date = os.environ.get('LEGAL_EFFECTIVE_DATE') or datetime.now(timezone.utc).strftime('%Y-%m-%d')
+          replacements = {
+              '[AGENCY_NAME]': os.environ.get('LEGAL_AGENCY_NAME', 'LiveSports'),
+              '[EFFECTIVE_DATE]': effective_date,
+              '[LEGAL_EMAIL_OR_CONTACT]': os.environ.get('LEGAL_CONTACT_EMAIL', 'support@livesports'),
+              '[PRIVACY_CONTACT_EMAIL]': os.environ.get('LEGAL_PRIVACY_EMAIL', 'privacy@livesports'),
+              '[REFUND_SUPPORT_EMAIL]': os.environ.get('LEGAL_REFUND_SUPPORT_EMAIL', 'support@livesports'),
+          }
+
+          for html_file in legal_dir.glob('*.html'):
+              content = html_file.read_text(encoding='utf-8')
+              for placeholder, value in replacements.items():
+                  content = content.replace(placeholder, value)
+              html_file.write_text(content, encoding='utf-8')
+              print(f'Updated {html_file}')
+          PY
+
+      - name: Build and deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZ_STATIC_APP_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: livesports-react-web
+          api_location: ''
+          output_location: dist
