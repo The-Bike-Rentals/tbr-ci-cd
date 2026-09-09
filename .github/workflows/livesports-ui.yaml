@@ -1,4 +1,4 @@
-name: LiveSports API Pipeline
+name: LiveSports UI Pipeline
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch private API workflow
+      - name: Dispatch private UI workflow
         uses: actions/github-script@v7
         env:
           TARGET_BRANCH: ${{ inputs.target_branch }}
@@ -26,6 +26,6 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: 'The-Bike-Rentals',
               repo: 'livesports',
-              workflow_id: 'api-deploy.yml',
+              workflow_id: 'ui-deploy.yml',
               ref: process.env.TARGET_BRANCH
             });
