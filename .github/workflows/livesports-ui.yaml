@@ -10,7 +10,7 @@ on:
         type: choice
         options:
           - development
-          - demons-production
+          - demons
           - production
       target_branch:
         description: Branch to build from the private LiveSports repository
