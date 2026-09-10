@@ -25,7 +25,7 @@ env:
 
 jobs:
   build-and-deploy:
-    environment: ${{ inputs.environment == 'production' && 'livesports-production' || 'livesports-dev' }}
+    environment: ${{ inputs.environment == 'production' && 'livesports-production' || inputs.environment == 'demons' && 'demons-production' || 'livesports-dev' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout LiveSports
