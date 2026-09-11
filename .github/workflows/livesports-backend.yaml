@@ -27,7 +27,7 @@ env:
 jobs:
   build-web-app:
     if: ${{ vars.TARGET_PLATFORM == 'WEB_APP' }}
-    environment: livesports-dev
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout LiveSports
@@ -59,7 +59,7 @@ jobs:
 
   deploy-web-app:
     if: ${{ vars.TARGET_PLATFORM == 'WEB_APP' }}
-    environment: livesports-dev
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
     needs: build-web-app
     steps:
@@ -229,9 +229,9 @@ jobs:
           publish-profile: ${{ secrets.AZ_WEB_APP_PUBLISH_PROFILE }}
           package: release.zip
 
-  build-production-aks:
+  build-aks:
     if: ${{ vars.TARGET_PLATFORM == 'AKS' }}
-    environment: livesports-production
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout LiveSports
@@ -265,11 +265,11 @@ jobs:
           docker push "${image}"
           docker push "${ACR_LOGIN_SERVER}/livesports-python-api:latest"
 
-  deploy-production-aks:
+  deploy-aks:
     if: ${{ vars.TARGET_PLATFORM == 'AKS' }}
-    environment: livesports-production
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
-    needs: build-production-aks
+    needs: build-aks
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
