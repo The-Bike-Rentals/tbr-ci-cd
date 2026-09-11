@@ -258,6 +258,8 @@ jobs:
     environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
     needs: resolve-target
+    outputs:
+      image_tag: ${{ steps.image-tag.outputs.image_tag }}
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
@@ -268,9 +270,12 @@ jobs:
           persist-credentials: false
 
       - name: Compute image tag
+        id: image-tag
         run: |
           short_sha=$(git rev-parse --short=7 HEAD)
-          echo "IMAGE_TAG=$(date -u +'%Y%m%d-%H%M%S')-${short_sha}" >> "$GITHUB_ENV"
+          image_tag="$(date -u +'%Y%m%d-%H%M%S')-${short_sha}"
+          echo "IMAGE_TAG=${image_tag}" >> "$GITHUB_ENV"
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Azure login
         uses: azure/login@v3
@@ -334,7 +339,7 @@ jobs:
       - name: Render Kubernetes manifests
         env:
           ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
-          IMAGE_TAG: ${{ vars.IMAGE_TAG || 'latest' }}
+          IMAGE_TAG: ${{ needs.build-aks.outputs.image_tag }}
         run: |
           mkdir -p .rendered
           for manifest in k8/python-api/deployment.yml k8/python-api/service.yml; do
