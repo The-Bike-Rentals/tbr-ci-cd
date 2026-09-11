@@ -25,10 +25,33 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-web-app:
-    if: ${{ vars.TARGET_PLATFORM == 'WEB_APP' }}
+  resolve-target:
     environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
+    outputs:
+      target_platform: ${{ steps.target.outputs.target_platform }}
+    steps:
+      - name: Resolve deployment target
+        id: target
+        env:
+          TARGET_PLATFORM: ${{ vars.TARGET_PLATFORM }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          GITHUB_ENVIRONMENT: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
+        run: |
+          echo "TARGET_PLATFORM=${TARGET_PLATFORM}"
+          echo "INPUT_ENVIRONMENT=${INPUT_ENVIRONMENT}"
+          echo "GITHUB_ENVIRONMENT=${GITHUB_ENVIRONMENT}"
+          if [ "${TARGET_PLATFORM}" != 'WEB_APP' ] && [ "${TARGET_PLATFORM}" != 'AKS' ]; then
+            echo "::error::TARGET_PLATFORM must be WEB_APP or AKS; found '${TARGET_PLATFORM}'."
+            exit 1
+          fi
+          echo "target_platform=${TARGET_PLATFORM}" >> "$GITHUB_OUTPUT"
+
+  build-web-app:
+    if: ${{ needs.resolve-target.outputs.target_platform == 'WEB_APP' }}
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
+    runs-on: ubuntu-latest
+    needs: resolve-target
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
@@ -58,10 +81,12 @@ jobs:
           path: release.zip
 
   deploy-web-app:
-    if: ${{ vars.TARGET_PLATFORM == 'WEB_APP' }}
+    if: ${{ needs.resolve-target.outputs.target_platform == 'WEB_APP' }}
     environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
-    needs: build-web-app
+    needs:
+      - resolve-target
+      - build-web-app
     steps:
       - name: Download deployment package
         uses: actions/download-artifact@v8
@@ -230,9 +255,10 @@ jobs:
           package: release.zip
 
   build-aks:
-    if: ${{ vars.TARGET_PLATFORM == 'AKS' }}
+    if: ${{ needs.resolve-target.outputs.target_platform == 'AKS' }}
     environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
+    needs: resolve-target
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
@@ -266,10 +292,12 @@ jobs:
           docker push "${ACR_LOGIN_SERVER}/livesports-python-api:latest"
 
   deploy-aks:
-    if: ${{ vars.TARGET_PLATFORM == 'AKS' }}
+    if: ${{ needs.resolve-target.outputs.target_platform == 'AKS' }}
     environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
-    needs: build-aks
+    needs:
+      - resolve-target
+      - build-aks
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
