@@ -405,6 +405,8 @@ jobs:
         env:
           NS: ${{ vars.K8S_NAMESPACE || 'default' }}
         run: |
+          cat .rendered/deployment.yml
+          cat .rendered/service.yml
           kubectl apply -n "${NS}" -f .rendered/deployment.yml
           kubectl apply -n "${NS}" -f .rendered/service.yml
           kubectl rollout restart -n "${NS}" deployment/livesports-python-api
