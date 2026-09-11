@@ -26,7 +26,7 @@ env:
 
 jobs:
   build-web-app:
-    if: ${{ inputs.environment == 'development' }}
+    if: ${{ vars.TARGET_PLATFORM == 'WEB_APP' }}
     environment: livesports-dev
     runs-on: ubuntu-latest
     steps:
@@ -58,7 +58,7 @@ jobs:
           path: release.zip
 
   deploy-web-app:
-    if: ${{ inputs.environment == 'development' }}
+    if: ${{ vars.TARGET_PLATFORM == 'WEB_APP' }}
     environment: livesports-dev
     runs-on: ubuntu-latest
     needs: build-web-app
@@ -229,8 +229,8 @@ jobs:
           publish-profile: ${{ secrets.AZ_WEB_APP_PUBLISH_PROFILE }}
           package: release.zip
 
-  deploy-production-aks:
-    if: ${{ inputs.environment == 'production' }}
+  build-production-aks:
+    if: ${{ vars.TARGET_PLATFORM == 'AKS' }}
     environment: livesports-production
     runs-on: ubuntu-latest
     steps:
@@ -264,6 +264,25 @@ jobs:
           docker build -t "${image}" -t "${ACR_LOGIN_SERVER}/livesports-python-api:latest" .
           docker push "${image}"
           docker push "${ACR_LOGIN_SERVER}/livesports-python-api:latest"
+
+  deploy-production-aks:
+    if: ${{ vars.TARGET_PLATFORM == 'AKS' }}
+    environment: livesports-production
+    runs-on: ubuntu-latest
+    needs: build-production-aks
+    steps:
+      - name: Checkout LiveSports
+        uses: actions/checkout@v4
+        with:
+          repository: The-Bike-Rentals/livesports
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+          persist-credentials: false
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Set AKS context
         uses: azure/aks-set-context@v4
