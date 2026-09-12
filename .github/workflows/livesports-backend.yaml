@@ -25,10 +25,33 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-web-app:
-    if: ${{ inputs.environment == 'development' }}
-    environment: livesports-dev
+  resolve-target:
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
+    outputs:
+      target_platform: ${{ steps.target.outputs.target_platform }}
+    steps:
+      - name: Resolve deployment target
+        id: target
+        env:
+          TARGET_PLATFORM: ${{ vars.TARGET_PLATFORM }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          GITHUB_ENVIRONMENT: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
+        run: |
+          echo "TARGET_PLATFORM=${TARGET_PLATFORM}"
+          echo "INPUT_ENVIRONMENT=${INPUT_ENVIRONMENT}"
+          echo "GITHUB_ENVIRONMENT=${GITHUB_ENVIRONMENT}"
+          if [ "${TARGET_PLATFORM}" != 'WEB_APP' ] && [ "${TARGET_PLATFORM}" != 'AKS' ]; then
+            echo "::error::TARGET_PLATFORM must be WEB_APP or AKS; found '${TARGET_PLATFORM}'."
+            exit 1
+          fi
+          echo "target_platform=${TARGET_PLATFORM}" >> "$GITHUB_OUTPUT"
+
+  build-web-app:
+    if: ${{ needs.resolve-target.outputs.target_platform == 'WEB_APP' }}
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
+    runs-on: ubuntu-latest
+    needs: resolve-target
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
@@ -58,10 +81,11 @@ jobs:
           path: release.zip
 
   deploy-web-app:
-    if: ${{ inputs.environment == 'development' }}
-    environment: livesports-dev
+    if: ${{ needs.resolve-target.outputs.target_platform == 'WEB_APP' }}
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
-    needs: build-web-app
+    needs:
+      - build-web-app
     steps:
       - name: Download deployment package
         uses: actions/download-artifact@v8
@@ -229,10 +253,13 @@ jobs:
           publish-profile: ${{ secrets.AZ_WEB_APP_PUBLISH_PROFILE }}
           package: release.zip
 
-  deploy-production-aks:
-    if: ${{ inputs.environment == 'production' }}
-    environment: livesports-production
+  build-aks:
+    if: ${{ needs.resolve-target.outputs.target_platform == 'AKS' }}
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
     runs-on: ubuntu-latest
+    needs: resolve-target
+    outputs:
+      image_tag: ${{ steps.image-tag.outputs.image_tag }}
     steps:
       - name: Checkout LiveSports
         uses: actions/checkout@v4
@@ -243,9 +270,12 @@ jobs:
           persist-credentials: false
 
       - name: Compute image tag
+        id: image-tag
         run: |
           short_sha=$(git rev-parse --short=7 HEAD)
-          echo "IMAGE_TAG=$(date -u +'%Y%m%d-%H%M%S')-${short_sha}" >> "$GITHUB_ENV"
+          image_tag="$(date -u +'%Y%m%d-%H%M%S')-${short_sha}"
+          echo "IMAGE_TAG=${image_tag}" >> "$GITHUB_ENV"
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Azure login
         uses: azure/login@v3
@@ -264,6 +294,26 @@ jobs:
           docker build -t "${image}" -t "${ACR_LOGIN_SERVER}/livesports-python-api:latest" .
           docker push "${image}"
           docker push "${ACR_LOGIN_SERVER}/livesports-python-api:latest"
+
+  deploy-aks:
+    if: ${{ needs.resolve-target.outputs.target_platform == 'AKS' }}
+    environment: ${{ inputs.environment == 'development' && 'livesports-dev' || 'livesports-production' }}
+    runs-on: ubuntu-latest
+    needs:
+      - build-aks
+    steps:
+      - name: Checkout LiveSports
+        uses: actions/checkout@v4
+        with:
+          repository: The-Bike-Rentals/livesports
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.GET_CODE_FROM_PRIVATE_REPO }}
+          persist-credentials: false
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Set AKS context
         uses: azure/aks-set-context@v4
@@ -289,10 +339,11 @@ jobs:
       - name: Render Kubernetes manifests
         env:
           ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ needs.build-aks.outputs.image_tag }}
         run: |
           mkdir -p .rendered
           for manifest in k8/python-api/deployment.yml k8/python-api/service.yml; do
-            envsubst < "${manifest}" > ".rendered/$(basename "${manifest}")"
+            envsubst '${ACR_LOGIN_SERVER} ${IMAGE_TAG}' < "${manifest}" > ".rendered/$(basename "${manifest}")"
           done
 
       - name: Recreate API runtime secret
