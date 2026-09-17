@@ -175,6 +175,7 @@ jobs:
           APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT || 'development' }}
           YOUTUBE_BROADCASTER_CHANNEL_TITLE: ${{ vars.YOUTUBE_BROADCASTER_CHANNEL_TITLE || 'livesports' }}
           YOUTUBE_POST_LIVE_VIDEO_STATUS: ${{ vars.YOUTUBE_POST_LIVE_VIDEO_STATUS || 'private' }}
+          STREAMING_STARTS_ENABLED: ${{ vars.STREAMING_STARTS_ENABLED || 'true' }}
         run: |
           cors_origins=$(python -c "import json, os; value=os.environ['CORS_ORIGINS']; parsed=json.loads(value); assert isinstance(parsed, list), 'CORS_ORIGINS must be a JSON array'; print(json.dumps(parsed, separators=(',', ':')))" )
           az webapp config appsettings set \
@@ -192,7 +193,8 @@ jobs:
               FRONTEND_BASE_URL="${FRONTEND_BASE_URL}" \
               ENVIRONMENT="${APP_ENVIRONMENT}" \
               YOUTUBE_BROADCASTER_CHANNEL_TITLE="${YOUTUBE_BROADCASTER_CHANNEL_TITLE}" \
-              YOUTUBE_POST_LIVE_VIDEO_STATUS="${YOUTUBE_POST_LIVE_VIDEO_STATUS}"
+              YOUTUBE_POST_LIVE_VIDEO_STATUS="${YOUTUBE_POST_LIVE_VIDEO_STATUS}" \
+              STREAMING_STARTS_ENABLED="${STREAMING_STARTS_ENABLED}"
 
       - name: Configure Web App secrets
         env:
@@ -375,6 +377,7 @@ jobs:
           YOUTUBE_BROADCASTER_CHANNEL_ID: ${{ secrets.YOUTUBE_BROADCASTER_CHANNEL_ID }}
           YOUTUBE_BROADCASTER_CHANNEL_TITLE: ${{ vars.YOUTUBE_BROADCASTER_CHANNEL_TITLE || 'livesports' }}
           YOUTUBE_POST_LIVE_VIDEO_STATUS: ${{ vars.YOUTUBE_POST_LIVE_VIDEO_STATUS || 'private' }}
+          STREAMING_STARTS_ENABLED: ${{ vars.STREAMING_STARTS_ENABLED || 'true' }}
         run: |
           kubectl delete secret livesports-secrets -n "${NS}" --ignore-not-found
           kubectl create secret generic livesports-secrets -n "${NS}" \
@@ -403,7 +406,8 @@ jobs:
             --from-literal=youtube_broadcaster_refresh_token="${YOUTUBE_BROADCASTER_REFRESH_TOKEN}" \
             --from-literal=youtube_broadcaster_channel_id="${YOUTUBE_BROADCASTER_CHANNEL_ID}" \
             --from-literal=youtube_broadcaster_channel_title="${YOUTUBE_BROADCASTER_CHANNEL_TITLE}" \
-            --from-literal=youtube_post_live_video_status="${YOUTUBE_POST_LIVE_VIDEO_STATUS}"
+            --from-literal=youtube_post_live_video_status="${YOUTUBE_POST_LIVE_VIDEO_STATUS}" \
+            --from-literal=streaming_starts_enabled="${STREAMING_STARTS_ENABLED}"
 
       - name: Deploy API to AKS
         env:
