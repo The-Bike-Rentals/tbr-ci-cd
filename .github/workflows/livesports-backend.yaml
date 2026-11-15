@@ -412,7 +412,7 @@ jobs:
             --from-literal=applicationinsights_connection_string="${APPLICATIONINSIGHTS_CONNECTION_STRING}" \
             --from-literal=log_level="${LOG_LEVEL}" \
             --from-literal=logging_enabled="${LOGGING_ENABLED}" \
-            --from-literal=streaming_start_enabled="${STREAMING_START_ENABLED}"
+            --from-literal=streaming_starts_enabled="${STREAMING_STARTS_ENABLED}"
 
       - name: Deploy API to AKS
         env:
