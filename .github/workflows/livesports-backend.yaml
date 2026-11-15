@@ -408,7 +408,11 @@ jobs:
             --from-literal=youtube_broadcaster_refresh_token="${YOUTUBE_BROADCASTER_REFRESH_TOKEN}" \
             --from-literal=youtube_broadcaster_channel_id="${YOUTUBE_BROADCASTER_CHANNEL_ID}" \
             --from-literal=youtube_broadcaster_channel_title="${YOUTUBE_BROADCASTER_CHANNEL_TITLE}" \
-            --from-literal=youtube_post_live_video_status="${YOUTUBE_POST_LIVE_VIDEO_STATUS}"
+            --from-literal=youtube_post_live_video_status="${YOUTUBE_POST_LIVE_VIDEO_STATUS}" \
+            --from-literal=applicationinsights_connection_string="${APPLICATIONINSIGHTS_CONNECTION_STRING}" \
+            --from-literal=log_level="${LOG_LEVEL}" \
+            --from-literal=logging_enabled="${LOGGING_ENABLED}" \
+            --from-literal=streaming_start_enabled="${STREAMING_START_ENABLED}"
 
       - name: Deploy API to AKS
         env:
